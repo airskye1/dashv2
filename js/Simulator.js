@@ -546,7 +546,7 @@ export default class Simulator {
     const reset = this.plannerReset;
     this.plannerReset = false;
 
-    this.lastPlanParams =  {
+    this.lastPlanParams = {
       config: Object.assign({}, this.pathPlannerConfigEditor.config, { speedLimit: this.editor.speedLimit, lanePreference: this.editor.lanePreference }),
       vehiclePose: predictedPose,
       vehicleStation: predictedStation,
@@ -590,6 +590,8 @@ export default class Simulator {
     const circleGeom = new THREE.CircleGeometry(0.1, 32);
     const circleMat = new THREE.MeshBasicMaterial({ color: 0x00ff80, transparent: true, opacity: 0.7 });
 
+    // Lattice debug points hidden for cleaner FSD look
+    /*
     const lattice = new RoadLattice(this.editor.lanePath, latticeStartStation, config);
     lattice.lattice.forEach(cells => {
       cells.forEach(c => {
@@ -599,6 +601,7 @@ export default class Simulator {
         this.plannedPathGroup.add(circle);
       });
     });
+    */
 
     // TODO: clear this up or just remove it
     if (false && dynamicObstacleGrid) {
@@ -662,17 +665,28 @@ export default class Simulator {
     const pathLine = new MeshLine();
     pathLine.setGeometry(pathGeometry);
 
-    const color = fromVehicleParams.type == 'cubic' ? new THREE.Color(0xff8800) : new THREE.Color(0xffff40);
+    // Tesla FSD Style Colors
+    // Blue when autonomous/enabled, Grey when manual/disabled
+    const fsdBlue = new THREE.Color(0x2b80ff); // Tesla-ish blue
+    const fsdGrey = new THREE.Color(0x555555); // Dark grey
+    const pathColor = this.carControllerMode === 'autonomous' ? fsdBlue : fsdGrey;
+
     const pathObject = new THREE.Mesh(
       pathLine.geometry,
       new MeshLineMaterial({
-        color: color,
-        lineWidth: 0.15,
-        resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight)
+        color: pathColor,
+        lineWidth: 0.8, // Thicker path
+        resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight),
+        dashArray: 0.5, // Enable dashing for animation
+        dashRatio: 0.1, // Mostly solid line
+        transparent: true,
+        opacity: 0.8,
+        depthTest: false // Draw on top
       })
     );
     pathObject.renderOrder = 1;
     this.plannedPathGroup.add(pathObject);
+    this.currentPathMesh = pathObject; // Save reference for animation
   }
 
   step(timestamp) {
@@ -696,9 +710,9 @@ export default class Simulator {
       if (manualControls.steer != 0 || manualControls.brake != 0 || manualControls.gas != 0)
         this.enableManualMode();
 
-      let autonomousControls = { steer: 0, brake: 0, gas: 0};
+      let autonomousControls = { steer: 0, brake: 0, gas: 0 };
       if (this.autonomousCarController)
-        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous') ;
+        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous');
       else if (this.autonomousCarController === null)
         autonomousControls = { steer: 0, brake: 1, gas: 0 };
 
@@ -752,6 +766,11 @@ export default class Simulator {
     }
 
     this.renderer.render(this.scene, this.camera);
+
+    // Animate path
+    if (this.currentPathMesh && this.currentPathMesh.material.uniforms) {
+      this.currentPathMesh.material.uniforms.dashOffset.value -= dt * 0.5; // Animate flow
+    }
 
     this.prevTimestamp = timestamp;
 
