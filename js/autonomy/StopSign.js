@@ -1,4 +1,4 @@
-import THREE from "script-loader!../../vendor/three.js";
+import THREE from "../../vendor/three.js";
 
 export default class StopSign {
     static hydrate(obj) {
