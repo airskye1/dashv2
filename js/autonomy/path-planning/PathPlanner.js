@@ -88,9 +88,9 @@ export default class PathPlanner {
           // Get station of object
           let pos;
           if (obj.pos) {
-            pos = new self.THREE.Vector2(obj.pos.x, obj.pos.y);
+            pos = new THREE.Vector2(obj.pos.x, obj.pos.y);
           } else if (obj.p) {
-            pos = new self.THREE.Vector2(obj.p[0], obj.p[1]);
+            pos = new THREE.Vector2(obj.p[0], obj.p[1]);
           } else {
             continue;
           }
@@ -123,9 +123,9 @@ export default class PathPlanner {
       // Calculate position just past the stop line
       let pos;
       if (nearestStopObj.pos) {
-        pos = new self.THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
+        pos = new THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
       } else {
-        pos = new self.THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
+        pos = new THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
       }
       const [s, l] = lanePath.stationLatitudeFromPosition(pos);
       const stopLineStation = s;

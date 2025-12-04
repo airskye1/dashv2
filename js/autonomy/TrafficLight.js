@@ -1,4 +1,4 @@
-import THREE from "../../vendor/three.js";
+
 
 export default class TrafficLight {
     static hydrate(obj) {
