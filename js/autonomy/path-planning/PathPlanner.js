@@ -2,6 +2,7 @@ import GPGPU from "../../GPGPU.js";
 import Car from "../../physics/Car.js";
 import CubicPath from "./CubicPath.js";
 import QuinticPath from "./QuinticPath.js";
+import StaticObstacle from "../StaticObstacle.js";
 import xyObstacleGrid from "./gpgpu-programs/xyObstacleGrid.js";
 import slObstacleGrid from "./gpgpu-programs/slObstacleGrid.js";
 import slObstacleGridDilation from "./gpgpu-programs/slObstacleGridDilation.js";
@@ -64,14 +65,128 @@ export default class PathPlanner {
     this.previousSecondLatticePoint = -1;
   }
 
-  plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles) {
+  plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, stopSigns = [], trafficLights = [], parkingSpots = [], direction = 1) {
     const latticeStationInterval = this._latticeStationInterval();
 
-    const centerlineRaw = lanePath.sampleStations(vehicleStation, Math.ceil((this.config.spatialHorizon + latticeStationInterval) / this.config.centerlineStationInterval) + 1, this.config.centerlineStationInterval);
+    const numCenterlinePoints = Math.ceil((this.config.spatialHorizon + latticeStationInterval) / this.config.centerlineStationInterval) + 1;
+    let centerlineRaw;
+
+    // ... (rest of function setup) ...
+
+    // --- STOP SIGN & TRAFFIC LIGHT LOGIC ---
+    // 1. Find nearest stop sign or red/yellow traffic light ahead
+    let nearestStopObj = null;
+    let minStopDist = Infinity;
+
+    // Helper to check objects
+    const checkStopObjects = (objects, isTrafficLight = false, isParkingSpot = false) => {
+      if (objects && objects.length > 0) {
+        for (const obj of objects) {
+          // For traffic lights, only stop if Red or Yellow
+          if (isTrafficLight && obj.state === 'green') continue;
+
+          // Get station of object
+          let pos;
+          if (obj.pos) {
+            pos = new self.THREE.Vector2(obj.pos.x, obj.pos.y);
+          } else if (obj.p) {
+            pos = new self.THREE.Vector2(obj.p[0], obj.p[1]);
+          } else {
+            continue;
+          }
+
+          const [s, l] = lanePath.stationLatitudeFromPosition(pos);
+
+          if (s !== null) {
+            const dist = direction === 1 ? s - vehicleStation : vehicleStation - s;
+
+            // For parking spots, allow checking behind (negative dist) for reversing maneuvers
+            const minCheckDist = isParkingSpot ? -10 : 0;
+            const horizon = isParkingSpot ? this.config.spatialHorizon * 1.5 : this.config.spatialHorizon;
+
+            if (dist > minCheckDist && dist < horizon && Math.abs(dist) < Math.abs(minStopDist)) {
+              minStopDist = dist;
+              nearestStopObj = obj;
+              nearestStopObj.isParkingSpot = isParkingSpot;
+            }
+          }
+        }
+      }
+    };
+
+    checkStopObjects(stopSigns, false, false);
+    checkStopObjects(trafficLights, true, false);
+    checkStopObjects(parkingSpots, false, true);
+
+    // 2. If stop object is approaching, enforce stop
+    if (nearestStopObj) {
+      // Calculate position just past the stop line
+      let pos;
+      if (nearestStopObj.pos) {
+        pos = new self.THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
+      } else {
+        pos = new self.THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
+      }
+      const [s, l] = lanePath.stationLatitudeFromPosition(pos);
+      const stopLineStation = s;
+
+      // Place obstacle 3 meters after stop line (approx car length + buffer)
+      // For parking spots, we want to stop exactly AT the spot, not past it.
+      // But the "stop line" logic places a wall *after* the target.
+      // If it's a parking spot, we might want to be more precise.
+      // For now, let's treat them all as "stop lines" where we stop *before* the line.
+      // So placing the wall 3m *after* the line means we stop *at* the line (front bumper).
+
+      let obstacleStation;
+
+      if (nearestStopObj.isParkingSpot) {
+        // Parking Spot Logic:
+        // Stop exactly at the spot center + offset for car length
+        // Car length approx 4.5m. Center to front/rear is ~2.25m.
+        // Wall should be at SpotStation + 2.25 + buffer (0.5) = +2.75
+        obstacleStation = stopLineStation + (direction * 2.75);
+      } else {
+        // Normal Stop Line (Stop Sign / Traffic Light)
+        // Place obstacle 3 meters after stop line
+        obstacleStation = stopLineStation + (direction * 3.0);
+      }
+
+      // Get XY of this station
+      const sample = lanePath.sampleStations(obstacleStation, 1, 0.1)[0];
+      if (sample) {
+        // Add a virtual static obstacle
+        const virtualObstacle = {
+          pos: sample.pos,
+          rot: sample.rot,
+          width: 1.0, // Thin wall
+          height: 4.0 // Road width approx
+        };
+
+        staticObstacles = [...staticObstacles, new StaticObstacle(virtualObstacle.pos, virtualObstacle.rot, virtualObstacle.width, virtualObstacle.height)];
+      }
+    }
+    // -----------------------
+
+    if (direction === -1) {
+      // Reverse: Sample backwards from vehicleStation
+      // sampleStations only goes forward, so we calculate the start point further back and reverse the result
+      const startStation = vehicleStation - (numCenterlinePoints - 1) * this.config.centerlineStationInterval;
+      centerlineRaw = lanePath.sampleStations(startStation, numCenterlinePoints, this.config.centerlineStationInterval).reverse();
+    } else {
+      // Forward: Sample normally
+      centerlineRaw = lanePath.sampleStations(vehicleStation, numCenterlinePoints, this.config.centerlineStationInterval);
+    }
 
     // Transform all centerline points into vehicle frame
-    const vehicleXform = vehicleTransform(vehiclePose);
-    const centerline = centerlineRaw.map(c => { return { pos: c.pos.clone().applyMatrix3(vehicleXform), rot: c.rot - vehiclePose.rot, curv: c.curv } });
+    let effectiveVehicleRot = vehiclePose.rot;
+    if (direction === -1) effectiveVehicleRot += Math.PI;
+
+    const vehicleXform = vehicleTransform({ ...vehiclePose, rot: effectiveVehicleRot });
+    const centerline = centerlineRaw.map(c => {
+      let rot = c.rot;
+      if (direction === -1) rot += Math.PI;
+      return { pos: c.pos.clone().applyMatrix3(vehicleXform), rot: rot - effectiveVehicleRot, curv: c.curv }
+    });
 
     const centerlineData = new Float32Array(centerline.length * 3);
     const maxPoint = new THREE.Vector2(0, 0);
@@ -104,19 +219,41 @@ export default class PathPlanner {
 
     let startStation;
 
-    if (this.previousStartStation === null || vehicleStation + latticeStationInterval / 2 > this.previousStartStation) {
-      startStation = (this.previousStartStation === null ? vehicleStation : this.previousStartStation) + latticeStationInterval;
-      this.previousStartStation = startStation;
-      this.previousFirstLatticePoint -= this.config.lattice.numLatitudes;
-      this.previousSecondLatticePoint -= this.config.lattice.numLatitudes;
+    if (direction === -1) {
+      // For reverse, we don't use previousStartStation optimization as easily,
+      // or we need to adapt it. For now, just reset it to ensure correctness.
+      // Or calculate it:
+      startStation = vehicleStation; // Lattice starts at vehicle and goes backwards?
+      // Actually, _buildLattice needs to generate points [S, S-d, S-2d...]
+      // If we pass the centerline array to _buildLattice, we don't need startStation logic there.
+      // But _buildLattice currently calls sampleStations.
+      // We should refactor _buildLattice to take the samples.
+
+      // Optimization: Just pass the samples we already generated?
+      // centerlineRaw has high resolution (centerlineStationInterval).
+      // Lattice needs lower resolution (latticeStationInterval).
+
+      // Let's just regenerate for lattice to be safe and simple.
+      // Lattice start station:
+      startStation = vehicleStation;
     } else {
-      startStation = this.previousStartStation;
+      if (this.previousStartStation === null || vehicleStation + latticeStationInterval / 2 > this.previousStartStation) {
+        startStation = (this.previousStartStation === null ? vehicleStation : this.previousStartStation) + latticeStationInterval;
+        this.previousStartStation = startStation;
+        this.previousFirstLatticePoint -= this.config.lattice.numLatitudes;
+        this.previousSecondLatticePoint -= this.config.lattice.numLatitudes;
+      } else {
+        startStation = this.previousStartStation;
+      }
     }
 
-    const lattice = this._buildLattice(lanePath, startStation, vehiclePose.rot, vehicleXform);
+    const lattice = this._buildLattice(lanePath, startStation, vehiclePose.rot, vehicleXform, direction);
 
     const temporalHorizon = this.config.spatialHorizon / this.config.speedLimit;
     const dynamicFrameTime = temporalHorizon / this.config.numDynamicFrames;
+
+    // --- STOP SIGN LOGIC REMOVED (Unified above) ---
+
 
     for (const [i, p] of [
       xyObstacleGrid.update(this.config, xyWidth, xyHeight, xyCenterPoint, vehicleXform, staticObstacles),
@@ -210,12 +347,12 @@ export default class PathPlanner {
 
       fromVehicleSegment.forEach(p => {
         p.pos = p.pos.applyMatrix3(inverseVehicleXform);
-        p.rot += vehiclePose.rot;
+        p.rot += effectiveVehicleRot;
       });
 
       bestTrajectory.forEach(p => {
         p.pos = p.pos.applyMatrix3(inverseVehicleXform);
-        p.rot += vehiclePose.rot;
+        p.rot += effectiveVehicleRot;
       });
     }
 
@@ -233,8 +370,18 @@ export default class PathPlanner {
     };
   }
 
-  _buildLattice(lanePath, startStation, vehicleRot, vehicleXform) {
-    const centerline = lanePath.sampleStations(startStation, this.config.lattice.numStations, this._latticeStationInterval());
+  _buildLattice(lanePath, startStation, vehicleRot, vehicleXform, direction = 1) {
+    let centerline;
+    if (direction === -1) {
+      // Reverse: Sample backwards from startStation
+      const numStations = this.config.lattice.numStations;
+      const interval = this._latticeStationInterval();
+      const actualStart = startStation - (numStations - 1) * interval;
+      centerline = lanePath.sampleStations(actualStart, numStations, interval).reverse();
+    } else {
+      centerline = lanePath.sampleStations(startStation, this.config.lattice.numStations, this._latticeStationInterval());
+    }
+
     const offset = Math.floor(this.config.lattice.numLatitudes / 2);
     const lattice = new Float32Array(this.config.lattice.numStations * this.config.lattice.numLatitudes * 4);
     let index = 0;

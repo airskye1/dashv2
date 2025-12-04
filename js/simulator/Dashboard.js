@@ -27,6 +27,7 @@ export default class Dashboard {
     this.gasDom = document.getElementById('gas');
     this.brakeDom = document.getElementById('brake');
     this.speedDom = document.getElementById('speed');
+    this.maxSpeedDom = document.getElementById('max-speed');
     this.stationDom = document.getElementById('station');
     this.latitudeDom = document.getElementById('latitude');
     this.planTimeDom = document.getElementById('plan-time');
@@ -114,6 +115,14 @@ export default class Dashboard {
     this.stationDom.textContent = station !== null ? station.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—';
     this.latitudeDom.textContent = latitudeText;
     this.updatePlanTime(planTime);
+
+    if (this.maxSpeedDom) {
+      let maxSpeed = arguments[6]; // Access maxSpeed from arguments or update signature
+      if (maxSpeed !== undefined) {
+        if (this.units == 'imperial') maxSpeed *= MPS_TO_MPH;
+        this.maxSpeedDom.textContent = maxSpeed.toFixed(0);
+      }
+    }
 
     let mins = Math.floor(elapsedTime / 60);
     let seconds = elapsedTime % 60;

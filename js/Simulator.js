@@ -16,6 +16,8 @@ import GPGPU from "./GPGPU.js";
 import RoadLattice from "./autonomy/path-planning/RoadLattice.js";
 import PathPlanner from "./autonomy/path-planning/PathPlanner.js";
 import StaticObstacle from "./autonomy/StaticObstacle.js";
+import StopSign from "./autonomy/StopSign.js";
+import TrafficLight from "./autonomy/TrafficLight.js";
 import DynamicObstacle from "./autonomy/DynamicObstacle.js";
 import MovingAverage from "./autonomy/MovingAverage.js";
 import PathPlannerConfigEditor from "./simulator/PathPlannerConfigEditor.js";
@@ -81,6 +83,16 @@ export default class Simulator {
     this.scene.add(this.staticObstaclesGroup);
     this.dynamicObstaclesGroup = new THREE.Group();
     this.scene.add(this.dynamicObstaclesGroup);
+    this.stopSignsGroup = new THREE.Group();
+    this.scene.add(this.stopSignsGroup);
+    this.trafficLightsGroup = new THREE.Group();
+    this.scene.add(this.trafficLightsGroup);
+    this.parkingSpotsGroup = new THREE.Group();
+    this.scene.add(this.parkingSpotsGroup);
+
+    this.stopSigns = [];
+    this.trafficLights = [];
+    this.parkingSpots = [];
 
     this.paused = false;
     this.prevTimestamp = null;
@@ -148,6 +160,8 @@ export default class Simulator {
 
     this.aroundAnchorIndex = null;
     this.staticObstacles = [];
+    this.stopSigns = [];
+    this.trafficLights = [];
     this.dynamicObstacles = [];
 
     this._checkHashScenario();
@@ -315,6 +329,9 @@ export default class Simulator {
       this.car.setPose(pos.x + Math.cos(perpindicular) * latitude, pos.y + Math.sin(perpindicular) * latitude, rot);
       this.car.velocity = this.editor.initialSpeed;
 
+      this.staticObstacles = this.editor.staticObstacles;
+      this.stopSigns = this.editor.stopSigns;
+      this.trafficLights = this.editor.trafficLights;
       this.dynamicObstacles = this.editor.dynamicObstacles;
 
       // The `false` value means the controller is waiting to be created after the first planning cycle.
@@ -341,6 +358,17 @@ export default class Simulator {
     this.staticObstacles = this.editor.staticObstacles;
     this.recreateStaticObstacleObjects();
     this.recreateDynamicObstacleObjects();
+
+    this.stopSigns = this.editor.stopSigns;
+    this.recreateStopSignObjects();
+
+    this.trafficLights = this.editor.trafficLights;
+    this.recreateTrafficLightObjects();
+
+    this.parkingSpots = this.editor.parkingSpots;
+    this.recreateParkingSpotObjects();
+
+
 
     this.dashboard.update({ steer: 0, brake: 0, gas: 0 }, this.car.velocity, null, null, 0, this.averagePlanTime.average);
 
@@ -384,6 +412,59 @@ export default class Simulator {
     });
 
     this.updateDynamicObjects(this.simulatedTime);
+  }
+
+  recreateStopSignObjects() {
+    this.scene.remove(this.stopSignsGroup);
+    this.stopSignsGroup = new THREE.Group();
+    this.scene.add(this.stopSignsGroup);
+
+    this.stopSigns.forEach(s => {
+      const mesh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.4, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.7 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = -s.rot;
+      mesh.position.set(s.pos.x, 0, s.pos.y);
+      this.stopSignsGroup.add(mesh);
+    });
+  }
+
+  recreateTrafficLightObjects() {
+    this.scene.remove(this.trafficLightsGroup);
+    this.trafficLightsGroup = new THREE.Group();
+    this.scene.add(this.trafficLightsGroup);
+
+    this.trafficLights.forEach(tl => {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.5, 3.0),
+        new THREE.MeshBasicMaterial({ color: 0x555555, depthTest: false, transparent: true, opacity: 0.8 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = -tl.rot;
+      mesh.position.set(tl.pos.x, 1.5, tl.pos.y);
+      // Store reference to update color later
+      mesh.userData = { trafficLight: tl };
+      this.trafficLightsGroup.add(mesh);
+    });
+  }
+
+  recreateParkingSpotObjects() {
+    this.scene.remove(this.parkingSpotsGroup);
+    this.parkingSpotsGroup = new THREE.Group();
+    this.scene.add(this.parkingSpotsGroup);
+
+    this.parkingSpots.forEach(ps => {
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.5, 5.0),
+        new THREE.MeshBasicMaterial({ color: 0xaaaaaa, depthTest: false, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = -ps.rot;
+      mesh.position.set(ps.pos.x, 0.02, ps.pos.y);
+      this.parkingSpotsGroup.add(mesh);
+    });
   }
 
   updateDynamicObjects(time) {
@@ -546,15 +627,28 @@ export default class Simulator {
     const reset = this.plannerReset;
     this.plannerReset = false;
 
+    // Detect direction based on velocity (or previous plan if stopped?)
+    // If velocity is negative (reversing), plan backwards.
+    // Threshold: -0.1 m/s
+    const direction = this.car.velocity < -0.1 ? -1 : 1;
+
     this.lastPlanParams = {
-      config: Object.assign({}, this.pathPlannerConfigEditor.config, { speedLimit: this.editor.speedLimit, lanePreference: this.editor.lanePreference }),
+      config: Object.assign({}, this.pathPlannerConfigEditor.config, {
+        speedLimit: this.editor.speedLimit,
+        lanePreference: this.editor.lanePreference,
+        roadWidth: this.editor.lanePath.width // Pass dynamic road width
+      }),
       vehiclePose: predictedPose,
       vehicleStation: predictedStation,
       lanePath: this.editor.lanePath,
       startTime: startTime,
       staticObstacles: this.staticObstacles,
       dynamicObstacles: this.dynamicObstacles.filter(o => o.positionAtTime(startTime).x >= 0),
-      reset: reset
+      stopSigns: this.editor.stopSigns, // Pass stop signs
+      trafficLights: this.trafficLights, // Pass traffic lights
+      parkingSpots: this.editor.parkingSpots, // Pass parking spots
+      reset: reset,
+      direction: direction
     };
 
     this.pathPlannerWorker.postMessage(this.lastPlanParams);
@@ -590,8 +684,6 @@ export default class Simulator {
     const circleGeom = new THREE.CircleGeometry(0.1, 32);
     const circleMat = new THREE.MeshBasicMaterial({ color: 0x00ff80, transparent: true, opacity: 0.7 });
 
-    // Lattice debug points hidden for cleaner FSD look
-    /*
     const lattice = new RoadLattice(this.editor.lanePath, latticeStartStation, config);
     lattice.lattice.forEach(cells => {
       cells.forEach(c => {
@@ -601,7 +693,6 @@ export default class Simulator {
         this.plannedPathGroup.add(circle);
       });
     });
-    */
 
     // TODO: clear this up or just remove it
     if (false && dynamicObstacleGrid) {
@@ -666,27 +757,59 @@ export default class Simulator {
     pathLine.setGeometry(pathGeometry);
 
     // Tesla FSD Style Colors
-    // Blue when autonomous/enabled, Grey when manual/disabled
-    const fsdBlue = new THREE.Color(0x2b80ff); // Tesla-ish blue
-    const fsdGrey = new THREE.Color(0x555555); // Dark grey
-    const pathColor = this.carControllerMode === 'autonomous' ? fsdBlue : fsdGrey;
+    const fsdBlue = new THREE.Color(0x2b80ff);
+    const fsdGrey = new THREE.Color(0x555555);
+
+    // Initialize transition state if not present
+    if (this.fsdTransition === undefined) {
+      this.fsdTransition = 0; // 0 = Manual (Grey/Thin), 1 = Auto (Blue/Wide)
+    }
+
+    // Create a texture for the flow effect (Subtle flow, mostly solid)
+    if (!this.pathTexture) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const context = canvas.getContext('2d');
+
+      // Solid with slight fade at the very end for smoothness, but mostly opaque as requested
+      const gradient = context.createLinearGradient(0, 0, 0, 64);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      gradient.addColorStop(0.8, 'rgba(255, 255, 255, 1)'); // Solid for most of the length
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fade only at the tip
+
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, 64, 64);
+
+      this.pathTexture = new THREE.CanvasTexture(canvas);
+      this.pathTexture.wrapS = THREE.RepeatWrapping;
+      this.pathTexture.wrapT = THREE.RepeatWrapping;
+      this.pathTexture.minFilter = THREE.LinearFilter;
+      this.pathTexture.magFilter = THREE.LinearFilter;
+    }
+
+    // Initial properties based on current mode (will be animated in step)
+    const isAuto = this.carControllerMode === 'autonomous';
+    const targetWidth = isAuto ? 1.2 : 0.4; // Wide for auto, thin for manual
+    const targetColor = isAuto ? fsdBlue : fsdGrey;
 
     const pathObject = new THREE.Mesh(
       pathLine.geometry,
       new MeshLineMaterial({
-        color: pathColor,
-        lineWidth: 0.8, // Thicker path
+        color: targetColor,
+        lineWidth: targetWidth,
         resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight),
-        dashArray: 0.5, // Enable dashing for animation
-        dashRatio: 0.1, // Mostly solid line
+        map: this.pathTexture,
+        useMap: 1,
+        repeat: new THREE.Vector2(1, 1),
         transparent: true,
-        opacity: 0.8,
-        depthTest: false // Draw on top
+        opacity: 1.0, // Solid opacity
+        depthTest: false
       })
     );
     pathObject.renderOrder = 1;
     this.plannedPathGroup.add(pathObject);
-    this.currentPathMesh = pathObject; // Save reference for animation
+    this.currentPathMesh = pathObject;
   }
 
   step(timestamp) {
@@ -720,6 +843,29 @@ export default class Simulator {
 
       this.car.update(controls, dt);
       this.physics.step(dt);
+      this.trafficLights.forEach(tl => {
+        tl.update(dt);
+
+        // Update Simulator visual
+        const simTl = this.trafficLightsGroup.children.find(c => c.userData.trafficLight === tl);
+        if (simTl) {
+          let color = 0x555555;
+          if (tl.state === 'red') color = 0xff0000;
+          else if (tl.state === 'yellow') color = 0xffff00;
+          else if (tl.state === 'green') color = 0x00ff00;
+          simTl.material.color.setHex(color);
+        }
+
+        // Update visual representation in editor if needed
+        const editorTl = this.editor.trafficLightGroup.children.find(c => c.userData.index === this.trafficLights.indexOf(tl));
+        if (editorTl) {
+          let color = 0x555555; // Off/Grey
+          if (tl.state === 'red') color = 0xff0000;
+          else if (tl.state === 'yellow') color = 0xffff00;
+          else if (tl.state === 'green') color = 0x00ff00;
+          editorTl.material.color.setHex(color);
+        }
+      });
 
       this.updateDynamicObjects(this.simulatedTime);
 
@@ -748,7 +894,7 @@ export default class Simulator {
         latitude = l;
       }
 
-      this.dashboard.update(controls, carVelocity, this.carStation, latitude, this.simulatedTime, this.averagePlanTime.average);
+      this.dashboard.update(controls, carVelocity, this.carStation, latitude, this.simulatedTime, this.averagePlanTime.average, this.editor.speedLimit);
     }
 
     if (!this.editor.enabled && this.plannerReady) {
@@ -765,11 +911,63 @@ export default class Simulator {
       this.fpsBox.textContent = this.fps.toFixed(1);
     }
 
+    // Update traffic light visuals in editor
+    // This is a bit hacky, directly accessing editor group children
+    // But we need to update colors based on state
+    this.editor.trafficLightGroup.children.forEach((mesh, i) => {
+      const tl = this.trafficLights[i];
+      if (tl) {
+        if (tl.state === 'red') mesh.material.color.setHex(0xff0000);
+        else if (tl.state === 'yellow') mesh.material.color.setHex(0xffff00);
+        else if (tl.state === 'green') mesh.material.color.setHex(0x00ff00);
+      }
+    });
+
     this.renderer.render(this.scene, this.camera);
 
-    // Animate path
-    if (this.currentPathMesh && this.currentPathMesh.material.uniforms) {
-      this.currentPathMesh.material.uniforms.dashOffset.value -= dt * 0.5; // Animate flow
+    // FSD Visuals Animation & Transition Logic
+    if (this.currentPathMesh && this.currentPathMesh.geometry && this.currentPathMesh.geometry.attributes.uv) {
+      // 1. UV Scrolling (Flow)
+      const uvs = this.currentPathMesh.geometry.attributes.uv;
+      const array = uvs.array;
+      const scrollSpeed = Math.max(0.1, this.car.velocity * 0.05);
+      const offset = dt * scrollSpeed;
+      for (let i = 1; i < array.length; i += 2) {
+        array[i] -= offset;
+      }
+      uvs.needsUpdate = true;
+
+      // 2. Mode Transition (Expand/Contract)
+      const isAuto = this.carControllerMode === 'autonomous';
+      const targetTransition = isAuto ? 1.0 : 0.0;
+      const transitionSpeed = 3.0; // Speed of expansion/contraction
+
+      // Smoothly interpolate transition state
+      if (this.fsdTransition < targetTransition) {
+        this.fsdTransition = Math.min(targetTransition, this.fsdTransition + dt * transitionSpeed);
+      } else if (this.fsdTransition > targetTransition) {
+        this.fsdTransition = Math.max(targetTransition, this.fsdTransition - dt * transitionSpeed);
+      }
+
+      // Interpolate Width: 0.4 (Manual) -> 1.2 (Auto)
+      const minWidth = 0.4;
+      const maxWidth = 1.2;
+      const currentWidth = minWidth + (maxWidth - minWidth) * this.fsdTransition;
+      this.currentPathMesh.material.uniforms.lineWidth.value = currentWidth;
+
+      // Interpolate Color: Grey -> Blue
+      const fsdBlue = new THREE.Color(0x2b80ff);
+      const fsdGrey = new THREE.Color(0x555555);
+      const currentColor = fsdGrey.clone().lerp(fsdBlue, this.fsdTransition);
+      this.currentPathMesh.material.uniforms.color.value = currentColor;
+
+      // 3. Slowing Down Opacity
+      // Only dim if actually stopped or barely moving, otherwise keep solid
+      if (this.car.velocity < 0.5) {
+        this.currentPathMesh.material.uniforms.opacity.value = 0.6;
+      } else {
+        this.currentPathMesh.material.uniforms.opacity.value = 1.0;
+      }
     }
 
     this.prevTimestamp = timestamp;

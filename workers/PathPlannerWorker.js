@@ -18,19 +18,20 @@ function init() {
     return;
   }
 
-  self.onmessage = function(event) {
-    const { config, vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, reset } = event.data;
+  self.onmessage = function (event) {
+    const { config, vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, stopSigns, trafficLights, parkingSpots, reset, direction } = event.data;
 
     LanePath.hydrate(lanePath);
     staticObstacles.forEach(o => StaticObstacle.hydrate(o));
     dynamicObstacles.forEach(o => DynamicObstacle.hydrate(o));
+    // StopSign, TrafficLight, ParkingSpot hydration if needed (simple objects for now)
 
     if (reset) pathPlanner.reset();
 
     pathPlanner.config = config;
 
     try {
-      const { path, fromVehicleSegment, fromVehicleParams, latticeStartStation, dynamicObstacleGrid } = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles);
+      const { path, fromVehicleSegment, fromVehicleParams, latticeStartStation, dynamicObstacleGrid } = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, stopSigns, trafficLights, parkingSpots, direction);
 
       self.postMessage({ path, fromVehicleSegment, fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid });
     } catch (error) {
@@ -40,7 +41,7 @@ function init() {
   };
 }
 
-if (typeof(window) === 'undefined') {
+if (typeof (window) === 'undefined') {
   init();
 } else {
   window.dash_initPathPlannerWorker = init;

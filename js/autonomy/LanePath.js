@@ -1,4 +1,4 @@
-const halfLaneWidth = 3.7;
+
 
 const centerlineGeometry = new THREE.Geometry();
 const leftBoundaryGeometry = new THREE.Geometry();
@@ -7,6 +7,10 @@ const rightBoundaryGeometry = new THREE.Geometry();
 export default class LanePath {
   static hydrate(obj) {
     Object.setPrototypeOf(obj, LanePath.prototype);
+    obj.anchors.forEach(a => Object.setPrototypeOf(a, THREE.Vector2.prototype));
+    obj.centerlines.forEach(c => c.forEach(p => Object.setPrototypeOf(p, THREE.Vector2.prototype)));
+    obj.leftBoundaries.forEach(c => c.forEach(p => Object.setPrototypeOf(p, THREE.Vector2.prototype)));
+    obj.rightBoundaries.forEach(c => c.forEach(p => Object.setPrototypeOf(p, THREE.Vector2.prototype)));
   }
 
   constructor() {
@@ -16,6 +20,7 @@ export default class LanePath {
     this.arcLengths = [];
     this.leftBoundaries = [];
     this.rightBoundaries = [];
+    this.width = 7.4; // Default width (2 lanes)
   }
 
   get centerline() {
@@ -227,8 +232,8 @@ export default class LanePath {
       const tangent = tangentAt(t, p0, p1, p2, p3);
       const normal = new THREE.Vector2(-tangent.y, tangent.x);
 
-      leftBoundary.push(normal.clone().multiplyScalar(-halfLaneWidth).add(point));
-      rightBoundary.push(normal.clone().multiplyScalar(halfLaneWidth).add(point));
+      leftBoundary.push(normal.clone().multiplyScalar(-this.width / 2).add(point));
+      rightBoundary.push(normal.clone().multiplyScalar(this.width / 2).add(point));
     }
 
     lengths.push(prevPoint.distanceTo(p2));
