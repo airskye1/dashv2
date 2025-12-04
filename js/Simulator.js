@@ -630,7 +630,48 @@ export default class Simulator {
     // Detect direction based on velocity (or previous plan if stopped?)
     // If velocity is negative (reversing), plan backwards.
     // Threshold: -0.1 m/s
-    const direction = this.car.velocity < -0.1 ? -1 : 1;
+    let direction = this.car.velocity < -0.1 ? -1 : 1;
+
+    // Auto Park Logic:
+    // If we are in autonomous mode, check if we should reverse into a parking spot.
+    if (this.carControllerMode === 'autonomous' && this.editor.parkingSpots.length > 0) {
+      // Find nearest parking spot
+      let nearestSpot = null;
+      let minSpotDist = Infinity;
+
+      for (const spot of this.editor.parkingSpots) {
+        // Calculate distance to spot
+        // We need station of spot.
+        // This is a bit expensive to do every frame if many spots, but usually few.
+        const spotPos = new THREE.Vector2(spot.pos.x, spot.pos.y);
+        const [s, l] = this.editor.lanePath.stationLatitudeFromPosition(spotPos);
+        if (s !== null) {
+          const dist = s - station; // Positive if spot is ahead, negative if behind
+          if (Math.abs(dist) < Math.abs(minSpotDist)) {
+            minSpotDist = dist;
+            nearestSpot = spot;
+          }
+        }
+      }
+
+      if (nearestSpot) {
+        // Logic:
+        // 1. If spot is ahead (0 < dist < 20m) and we are moving forward:
+        //    Keep direction = 1. Planner will stop us *past* the spot (handled in PathPlanner).
+        // 2. If spot is behind (-10m < dist < 0) and we are stopped (velocity approx 0):
+        //    Switch to reverse (direction = -1).
+        //    Planner will plan path into spot.
+
+        if (minSpotDist > -10 && minSpotDist < 0 && Math.abs(this.car.velocity) < 0.5) {
+          // We are past the spot and stopped. Reverse!
+          direction = -1;
+          // Force reset if we just switched direction to ensure smooth planning
+          if (this.car.velocity > -0.1) { // If we were not already reversing
+            // this.plannerReset = true; // Maybe?
+          }
+        }
+      }
+    }
 
     this.lastPlanParams = {
       config: Object.assign({}, this.pathPlannerConfigEditor.config, {
