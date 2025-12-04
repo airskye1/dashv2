@@ -632,7 +632,40 @@ export default class Simulator {
     // Threshold: -0.1 m/s
     let direction = this.car.velocity < -0.1 ? -1 : 1;
 
-    // Auto Park Logic:
+    // 1. Obstacle Avoidance / Unstuck Logic
+    // If we are stopped (or moving very slowly) and there is an obstacle directly ahead, reverse.
+    if (this.car.velocity > -0.1 && this.car.velocity < 0.1) {
+      // Check for obstacles in front within 5 meters
+      const carPos = this.car.pose.pos;
+      const carRot = this.car.pose.rot;
+      const forwardDir = new THREE.Vector2(Math.cos(carRot), Math.sin(carRot));
+
+      let blocked = false;
+      for (const obs of this.staticObstacles) {
+        // Simple box check or distance check
+        const obsPos = obs.pos; // Vector2
+        const toObs = new THREE.Vector2().subVectors(obsPos, carPos);
+        const dist = toObs.length();
+        const dot = toObs.dot(forwardDir);
+
+        // If obstacle is in front (dot > 0), close (dist < 8), and roughly in line (width check approx)
+        if (dot > 0 && dist < 8.0) {
+          // Check lateral offset relative to car heading
+          // A simple way is |det(forward, toObs)|
+          const det = forwardDir.x * toObs.y - forwardDir.y * toObs.x;
+          if (Math.abs(det) < 2.0) { // Within 2m lateral
+            blocked = true;
+            break;
+          }
+        }
+      }
+
+      if (blocked) {
+        direction = -1;
+      }
+    }
+
+    // 2. Auto Park Logic
     // If we are in autonomous mode, check if we should reverse into a parking spot.
     if (this.carControllerMode === 'autonomous' && this.editor.parkingSpots.length > 0) {
       // Find nearest parking spot
@@ -640,9 +673,6 @@ export default class Simulator {
       let minSpotDist = Infinity;
 
       for (const spot of this.editor.parkingSpots) {
-        // Calculate distance to spot
-        // We need station of spot.
-        // This is a bit expensive to do every frame if many spots, but usually few.
         const spotPos = new THREE.Vector2(spot.pos.x, spot.pos.y);
         const [s, l] = this.editor.lanePath.stationLatitudeFromPosition(spotPos);
         if (s !== null) {
@@ -658,17 +688,14 @@ export default class Simulator {
         // Logic:
         // 1. If spot is ahead (0 < dist < 20m) and we are moving forward:
         //    Keep direction = 1. Planner will stop us *past* the spot (handled in PathPlanner).
-        // 2. If spot is behind (-10m < dist < 0) and we are stopped (velocity approx 0):
+        // 2. If spot is behind (-15m < dist < 0) and we are stopped (velocity approx 0):
         //    Switch to reverse (direction = -1).
         //    Planner will plan path into spot.
 
-        if (minSpotDist > -10 && minSpotDist < 0 && Math.abs(this.car.velocity) < 0.5) {
-          // We are past the spot and stopped. Reverse!
+        // Expanded range for "past the spot" to -15m to ensure we catch it
+        if (minSpotDist > -15 && minSpotDist < 1.0 && Math.abs(this.car.velocity) < 0.5) {
+          // We are past the spot (or at it) and stopped. Reverse!
           direction = -1;
-          // Force reset if we just switched direction to ensure smooth planning
-          if (this.car.velocity > -0.1) { // If we were not already reversing
-            // this.plannerReset = true; // Maybe?
-          }
         }
       }
     }
@@ -677,10 +704,8 @@ export default class Simulator {
     let lanePreference = this.editor.lanePreference;
 
     // If we have a target parking spot and we are close (or reversing), bias the lane center
-    // We can reuse the nearestSpot logic from above, but we need to access it outside the block or re-calculate.
-    // Let's re-calculate or scope it out.
-
     if (this.carControllerMode === 'autonomous' && this.editor.parkingSpots.length > 0) {
+      // Re-find nearest for scoping (could optimize)
       let nearestSpot = null;
       let minSpotDist = Infinity;
       for (const spot of this.editor.parkingSpots) {
@@ -699,7 +724,6 @@ export default class Simulator {
         // If we are close enough to start maneuvering (e.g. < 30m)
         if (Math.abs(minSpotDist) < 30) {
           // Only bias lateral position if we are REVERSING into the spot
-          // Or if we want to pull in forward (future logic). For now, "Reverse FSD" implies backing in.
           if (direction === -1) {
             const spotPos = new THREE.Vector2(nearestSpot.pos.x, nearestSpot.pos.y);
             const [s, l] = this.editor.lanePath.stationLatitudeFromPosition(spotPos);
