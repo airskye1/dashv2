@@ -673,11 +673,54 @@ export default class Simulator {
       }
     }
 
+    let laneCenterLatitude = this.pathPlannerConfigEditor.config.laneCenterLatitude; // Default 0
+    let lanePreference = this.editor.lanePreference;
+
+    // If we have a target parking spot and we are close (or reversing), bias the lane center
+    // We can reuse the nearestSpot logic from above, but we need to access it outside the block or re-calculate.
+    // Let's re-calculate or scope it out.
+
+    if (this.carControllerMode === 'autonomous' && this.editor.parkingSpots.length > 0) {
+      let nearestSpot = null;
+      let minSpotDist = Infinity;
+      for (const spot of this.editor.parkingSpots) {
+        const spotPos = new THREE.Vector2(spot.pos.x, spot.pos.y);
+        const [s, l] = this.editor.lanePath.stationLatitudeFromPosition(spotPos);
+        if (s !== null) {
+          const dist = s - station;
+          if (Math.abs(dist) < Math.abs(minSpotDist)) {
+            minSpotDist = dist;
+            nearestSpot = spot;
+          }
+        }
+      }
+
+      if (nearestSpot) {
+        // If we are close enough to start maneuvering (e.g. < 30m)
+        if (Math.abs(minSpotDist) < 30) {
+          // Only bias lateral position if we are REVERSING into the spot
+          // Or if we want to pull in forward (future logic). For now, "Reverse FSD" implies backing in.
+          if (direction === -1) {
+            const spotPos = new THREE.Vector2(nearestSpot.pos.x, nearestSpot.pos.y);
+            const [s, l] = this.editor.lanePath.stationLatitudeFromPosition(spotPos);
+
+            // Set target lateral position to the spot's offset
+            laneCenterLatitude = Math.abs(l);
+
+            // Set preference to the side of the spot
+            lanePreference = l < 0 ? 1 : -1;
+          }
+        }
+      }
+    }
+
     this.lastPlanParams = {
       config: Object.assign({}, this.pathPlannerConfigEditor.config, {
         speedLimit: this.editor.speedLimit,
-        lanePreference: this.editor.lanePreference,
-        roadWidth: this.editor.lanePath.width // Pass dynamic road width
+        lanePreference: lanePreference,
+        roadWidth: this.editor.lanePath.width, // Pass dynamic road width
+        laneCenterLatitude: laneCenterLatitude,
+        laneShoulderLatitude: this.editor.lanePath.width / 2 // Ensure shoulder is wide enough
       }),
       vehiclePose: predictedPose,
       vehicleStation: predictedStation,

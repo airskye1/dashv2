@@ -138,13 +138,33 @@ export default class PathPlanner {
       // So placing the wall 3m *after* the line means we stop *at* the line (front bumper).
 
       let obstacleStation;
+      let obstacleOffset = 0; // Lateral offset from centerline
 
       if (nearestStopObj.isParkingSpot) {
         // Parking Spot Logic:
-        // Stop exactly at the spot center + offset for car length
-        // Car length approx 4.5m. Center to front/rear is ~2.25m.
-        // Wall should be at SpotStation + 2.25 + buffer (0.5) = +2.75
-        obstacleStation = stopLineStation + (direction * 2.75);
+        if (direction === 1) {
+          // Forward: Pull past the spot.
+          // Stop 5m past the spot center.
+          // Wall at Centerline (L=0) so we stop on road.
+          obstacleStation = stopLineStation + 5.0;
+        } else {
+          // Reverse: Back into the spot.
+          // Stop at spot center.
+          // Wall at Spot Lateral Position.
+          obstacleStation = stopLineStation;
+
+          // Calculate lateral offset
+          // stopLineStation is S. We need L.
+          // We can re-calculate L from nearestStopObj.pos
+          let spotPos;
+          if (nearestStopObj.pos) {
+            spotPos = new THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
+          } else {
+            spotPos = new THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
+          }
+          const [s, l] = lanePath.stationLatitudeFromPosition(spotPos);
+          obstacleOffset = l;
+        }
       } else {
         // Normal Stop Line (Stop Sign / Traffic Light)
         // Place obstacle 3 meters after stop line
@@ -155,8 +175,12 @@ export default class PathPlanner {
       const sample = lanePath.sampleStations(obstacleStation, 1, 0.1)[0];
       if (sample) {
         // Add a virtual static obstacle
+        // Apply lateral offset
+        const normal = new THREE.Vector2(-Math.sin(sample.rot), Math.cos(sample.rot));
+        const pos = sample.pos.clone().add(normal.multiplyScalar(obstacleOffset));
+
         const virtualObstacle = {
-          pos: sample.pos,
+          pos: pos,
           rot: sample.rot,
           width: 1.0, // Thin wall
           height: 4.0 // Road width approx
