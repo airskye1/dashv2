@@ -243,6 +243,25 @@
                         </div>
                     </div>
                 </div>
+                <div class="field is-horizontal">
+                    <div class="field-label is-small" style="flex-grow: 100;">
+                        <label class="label has-text-grey-light">Road Type</label>
+                    </div>
+                    <div class="field-body">
+                        <div class="field has-addons" style="width: 150px;">
+                            <div class="control">
+                                <div id="editor-road-regular" class="button is-small is-dark is-outlined is-inverted">
+                                    Regular
+                                </div>
+                            </div>
+                            <div class="control">
+                                <div id="editor-road-highway" class="button is-small is-dark is-outlined is-inverted">
+                                    Highway
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="editor-dynamic-obstacles-box" class="gui-box is-hidden">
                 <div class="is-clearfix">
@@ -444,6 +463,10 @@
                         <span id="editor-parking-spots" class="button is-small is-dark is-outlined is-inverted">Parking
                             Spots</span>
                     </div>
+                    <div class="control">
+                        <span id="editor-intersections"
+                            class="button is-small is-dark is-outlined is-inverted">Intersections</span>
+                    </div>
                 </div>
                 <div class="field" style="position: relative;">
                     <div class="control">
@@ -459,6 +482,8 @@
                                     Lights</button>
                                 <button id="editor-clear-parking-spots" class="button is-small is-warning">Parking
                                     Spots</button>
+                                <button id="editor-clear-intersections"
+                                    class="button is-small is-warning">Intersections</button>
                                 <span id="editor-clear-obstacles" class="button is-small is-warning">Static
                                     Obstacles</span>
                                 <span id="editor-clear-path" class="button is-small is-warning">Road</span>
@@ -626,6 +651,16 @@
                                 <div class="name">Traffic Light Intersection</div>
                             </div>
                         </div>
+                        <div class="columns">
+                            <div id="example-10" class="column">
+                                <img src="images/examples/merging.png" />
+                                <div class="name">Highway with Intersection</div>
+                            </div>
+                            <div id="example-11" class="column">
+                                <img src="images/examples/lane_blockage.png" />
+                                <div class="name">Reverse FSD Test</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div id="scenarios-modal-saved-tab" class="scenarios-modal-tab is-hidden">
@@ -692,6 +727,8 @@
             </div>
         </div>
     </div>
+
+
 
     <script defer src="vendor/fontawesome-all.js"></script>
     <script src="vendor/three.js"></script>

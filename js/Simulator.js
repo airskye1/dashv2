@@ -4,10 +4,14 @@ import CubicPath from "./autonomy/path-planning/CubicPath.js";
 import AutonomousController from "./autonomy/control/AutonomousController.js";
 import FollowController from "./autonomy/control/FollowController.js";
 import ManualController from "./autonomy/control/ManualController.js";
+import ReverseController from "./autonomy/control/ReverseController.js";
+import EnhancedAutonomousController from "./autonomy/control/EnhancedAutonomousController.js";
 import MapObject from "./objects/MapObject.js";
 import CarObject from "./objects/CarObject.js";
 import StaticObstacleObject from "./objects/StaticObstacleObject.js";
 import DynamicObstacleObject from "./objects/DynamicObstacleObject.js";
+import TrafficLightObject from "./objects/TrafficLightObject.js";
+import IntersectionObject from "./objects/IntersectionObject.js";
 import Editor from "./simulator/Editor.js";
 import OrbitControls from "./simulator/OrbitControls.js";
 import TopDownCameraControls from "./simulator/TopDownCameraControls.js";
@@ -21,6 +25,7 @@ import TrafficLight from "./autonomy/TrafficLight.js";
 import DynamicObstacle from "./autonomy/DynamicObstacle.js";
 import MovingAverage from "./autonomy/MovingAverage.js";
 import PathPlannerConfigEditor from "./simulator/PathPlannerConfigEditor.js";
+import AlertService from "./simulator/AlertService.js";
 
 const WELCOME_MODAL_KEY = 'dash_WelcomeModal';
 
@@ -69,6 +74,7 @@ export default class Simulator {
 
     this.manualCarController = new ManualController();
     this.autonomousCarController = null;
+    this.reverseController = null; // FSD-style reverse/unstuck controller
 
     this.dashboard = new Dashboard(this.car);
 
@@ -93,6 +99,12 @@ export default class Simulator {
     this.stopSigns = [];
     this.trafficLights = [];
     this.parkingSpots = [];
+
+    // FSD-like Speed Profiles: 'chill', 'standard', 'hurry'
+    this.speedProfile = 'standard';
+    this.planningDirection = 1; // 1 for forward, -1 for reverse
+    this.alertService = new AlertService();
+
 
     this.paused = false;
     this.prevTimestamp = null;
@@ -163,6 +175,35 @@ export default class Simulator {
     this.stopSigns = [];
     this.trafficLights = [];
     this.dynamicObstacles = [];
+
+    // Keyboard shortcuts for speed profiles and lane changes
+    window.addEventListener('keydown', e => {
+      if (this.carControllerMode === 'autonomous' && !this.editor.enabled) {
+        // Speed profiles: 1, 2, 3
+        if (e.key === '1') {
+          this.speedProfile = 'chill';
+          this.alertService.show('Speed Profile: Chill', 'info');
+        } else if (e.key === '2') {
+          this.speedProfile = 'standard';
+          this.alertService.show('Speed Profile: Standard', 'info');
+        } else if (e.key === '3') {
+          this.speedProfile = 'hurry';
+          this.alertService.show('Speed Profile: Hurry', 'info');
+        }
+
+        // Lane changes: Q (left), E (right)
+        if (e.key === 'q' || e.key === 'Q') {
+          this.editor._changeLanePreference(1); // Left
+          this.alertService.show('Lane Change: Left', 'info');
+        } else if (e.key === 'e' || e.key === 'E') {
+          this.editor._changeLanePreference(-1); // Right
+          this.alertService.show('Lane Change: Right', 'info');
+        } else if (e.key === 'w' || e.key === 'W') {
+          this.editor._changeLanePreference(0); // Center
+          this.alertService.show('Lane: Center', 'info');
+        }
+      }
+    });
 
     this._checkHashScenario();
 
@@ -437,16 +478,8 @@ export default class Simulator {
     this.scene.add(this.trafficLightsGroup);
 
     this.trafficLights.forEach(tl => {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.5, 3.0),
-        new THREE.MeshBasicMaterial({ color: 0x555555, depthTest: false, transparent: true, opacity: 0.8 })
-      );
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.rotation.z = -tl.rot;
-      mesh.position.set(tl.pos.x, 1.5, tl.pos.y);
-      // Store reference to update color later
-      mesh.userData = { trafficLight: tl };
-      this.trafficLightsGroup.add(mesh);
+      const trafficLightObj = new TrafficLightObject(tl);
+      this.trafficLightsGroup.add(trafficLightObj);
     });
   }
 
@@ -738,13 +771,21 @@ export default class Simulator {
       }
     }
 
+
+
+    // Apply FSD-like speed profile multiplier
+    let speedMultiplier = 1.0;
+    if (this.speedProfile === 'chill') speedMultiplier = 0.85;
+    else if (this.speedProfile === 'hurry') speedMultiplier = 1.15;
+
     this.lastPlanParams = {
       config: Object.assign({}, this.pathPlannerConfigEditor.config, {
-        speedLimit: this.editor.speedLimit,
+        speedLimit: this.editor.speedLimit * speedMultiplier,
         lanePreference: lanePreference,
         roadWidth: this.editor.lanePath.width, // Pass dynamic road width
         laneCenterLatitude: laneCenterLatitude,
-        laneShoulderLatitude: this.editor.lanePath.width / 2 // Ensure shoulder is wide enough
+        laneShoulderLatitude: this.editor.lanePath.width / 2, // Ensure shoulder is wide enough
+        speedProfile: this.speedProfile // Pass profile for behavior tuning
       }),
       vehiclePose: predictedPose,
       vehicleStation: predictedStation,
@@ -759,6 +800,7 @@ export default class Simulator {
       direction: direction
     };
 
+    this.planningDirection = direction; // Store for controller
     this.pathPlannerWorker.postMessage(this.lastPlanParams);
   }
 
@@ -792,15 +834,16 @@ export default class Simulator {
     const circleGeom = new THREE.CircleGeometry(0.1, 32);
     const circleMat = new THREE.MeshBasicMaterial({ color: 0x00ff80, transparent: true, opacity: 0.7 });
 
-    const lattice = new RoadLattice(this.editor.lanePath, latticeStartStation, config);
-    lattice.lattice.forEach(cells => {
-      cells.forEach(c => {
-        const circle = new THREE.Mesh(circleGeom, circleMat);
-        circle.position.set(c.pos.x, 0, c.pos.y);
-        circle.rotation.x = -Math.PI / 2;
-        this.plannedPathGroup.add(circle);
-      });
-    });
+    // Lattice visualization disabled for cleaner FSD look
+    // const lattice = new RoadLattice(this.editor.lanePath, latticeStartStation, config);
+    // lattice.lattice.forEach(cells => {
+    //   cells.forEach(c => {
+    //     const circle = new THREE.Mesh(circleGeom, circleMat);
+    //     circle.position.set(c.pos.x, 0, c.pos.y);
+    //     circle.rotation.x = -Math.PI / 2;
+    //     this.plannedPathGroup.add(circle);
+    //   });
+    // });
 
     // TODO: clear this up or just remove it
     if (false && dynamicObstacleGrid) {
@@ -857,48 +900,59 @@ export default class Simulator {
     if (this.autonomousCarController)
       this.autonomousCarController.replacePath(followPath);
     else
-      this.autonomousCarController = new FollowController(followPath, this.car);
+      this.autonomousCarController = new EnhancedAutonomousController(
+        followPath,
+        this.car,
+        this.staticObstacles.concat(this.dynamicObstacles),
+        this.trafficLights,
+        this.stopSigns,
+        this.editor.parkingSpots || []
+      );
+
+    // Show a reasonable length of path ahead (Tesla FSD style - long lookahead)
+    const maxPointsToShow = 250; // Show ~250 points ahead for FSD-style visualization
+    const visiblePath = path.slice(0, Math.min(path.length, maxPointsToShow));
 
     const pathGeometry = new THREE.Geometry();
-    pathGeometry.setFromPoints(path.map(p => new THREE.Vector3(p.pos.x, 0, p.pos.y)));
+    pathGeometry.setFromPoints(visiblePath.map(p => new THREE.Vector3(p.pos.x, 0, p.pos.y))); // On ground
     const pathLine = new MeshLine();
     pathLine.setGeometry(pathGeometry);
 
     // Tesla FSD Style Colors
-    const fsdBlue = new THREE.Color(0x2b80ff);
-    const fsdGrey = new THREE.Color(0x555555);
+    const fsdBlue = new THREE.Color(0x3b82f6); // Brighter, more vibrant blue
+    const fsdGrey = new THREE.Color(0x6b7280);
 
     // Initialize transition state if not present
     if (this.fsdTransition === undefined) {
       this.fsdTransition = 0; // 0 = Manual (Grey/Thin), 1 = Auto (Blue/Wide)
     }
 
-    // Create a texture for the flow effect (Subtle flow, mostly solid)
+    // Create a texture for the fade effect (FSD style)
     if (!this.pathTexture) {
       const canvas = document.createElement('canvas');
       canvas.width = 64;
-      canvas.height = 64;
+      canvas.height = 256;
       const context = canvas.getContext('2d');
 
-      // Solid with slight fade at the very end for smoothness, but mostly opaque as requested
-      const gradient = context.createLinearGradient(0, 0, 0, 64);
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      gradient.addColorStop(0.8, 'rgba(255, 255, 255, 1)'); // Solid for most of the length
-      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fade only at the tip
+      // Gradient that fades at the far end (Tesla FSD style)
+      const gradient = context.createLinearGradient(0, 0, 0, 256);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)'); // Start opaque
+      gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.9)'); // Stay opaque
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fade at end
 
       context.fillStyle = gradient;
-      context.fillRect(0, 0, 64, 64);
+      context.fillRect(0, 0, 64, 256);
 
       this.pathTexture = new THREE.CanvasTexture(canvas);
-      this.pathTexture.wrapS = THREE.RepeatWrapping;
-      this.pathTexture.wrapT = THREE.RepeatWrapping;
+      this.pathTexture.wrapS = THREE.ClampToEdgeWrapping; // NO REPEAT to avoid strip
+      this.pathTexture.wrapT = THREE.ClampToEdgeWrapping;
       this.pathTexture.minFilter = THREE.LinearFilter;
       this.pathTexture.magFilter = THREE.LinearFilter;
     }
 
-    // Initial properties based on current mode (will be animated in step)
+    // Properties based on current mode
     const isAuto = this.carControllerMode === 'autonomous';
-    const targetWidth = isAuto ? 1.2 : 0.4; // Wide for auto, thin for manual
+    const targetWidth = isAuto ? 2.0 : 0.6; // Wider for auto (Tesla FSD style)
     const targetColor = isAuto ? fsdBlue : fsdGrey;
 
     const pathObject = new THREE.Mesh(
@@ -911,7 +965,7 @@ export default class Simulator {
         useMap: 1,
         repeat: new THREE.Vector2(1, 1),
         transparent: true,
-        opacity: 1.0, // Solid opacity
+        opacity: 0.85, // Slightly transparent for FSD look
         depthTest: false
       })
     );
@@ -943,29 +997,54 @@ export default class Simulator {
 
       let autonomousControls = { steer: 0, brake: 0, gas: 0 };
       if (this.autonomousCarController)
-        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous');
+        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous', this.planningDirection);
       else if (this.autonomousCarController === null)
         autonomousControls = { steer: 0, brake: 1, gas: 0 };
+
+      // FSD-style reverse/unstuck - uses autopilot with reverse path
+      if (this.carControllerMode == 'autonomous') {
+        if (!this.reverseController) {
+          const obstacles = this.staticObstacles.concat(this.dynamicObstacles);
+          this.reverseController = new ReverseController(this.car, obstacles, this.editor.lanePath);
+        }
+
+        const reversePath = this.reverseController.update(dt, this.car.pose);
+
+        if (reversePath && this.reverseController.isReversing) {
+          // Use reverse path with Enhanced controller for smarter reversing
+          if (!this.reverseFollowController) {
+            this.reverseFollowController = new EnhancedAutonomousController(
+              reversePath,
+              this.car,
+              obstacles,
+              this.trafficLights,
+              this.stopSigns,
+              this.editor.parkingSpots || []
+            );
+          } else {
+            this.reverseFollowController.replacePath(reversePath);
+          }
+          autonomousControls = this.reverseFollowController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, true, 1);
+        } else if (this.reverseFollowController) {
+          this.reverseFollowController = null;
+        }
+      }
 
       const controls = this.carControllerMode == 'autonomous' ? autonomousControls : manualControls;
 
       this.car.update(controls, dt);
       this.physics.step(dt);
-      this.trafficLights.forEach(tl => {
+      this.trafficLights.forEach((tl, index) => {
         tl.update(dt);
 
-        // Update Simulator visual
-        const simTl = this.trafficLightsGroup.children.find(c => c.userData.trafficLight === tl);
-        if (simTl) {
-          let color = 0x555555;
-          if (tl.state === 'red') color = 0xff0000;
-          else if (tl.state === 'yellow') color = 0xffff00;
-          else if (tl.state === 'green') color = 0x00ff00;
-          simTl.material.color.setHex(color);
+        // Update the 3D traffic light object
+        const trafficLightObj = this.trafficLightsGroup.children[index];
+        if (trafficLightObj && trafficLightObj.update) {
+          trafficLightObj.update();
         }
 
         // Update visual representation in editor if needed
-        const editorTl = this.editor.trafficLightGroup.children.find(c => c.userData.index === this.trafficLights.indexOf(tl));
+        const editorTl = this.editor.trafficLightGroup.children.find(c => c.userData.index === index);
         if (editorTl) {
           let color = 0x555555; // Off/Grey
           if (tl.state === 'red') color = 0xff0000;
@@ -1057,24 +1136,24 @@ export default class Simulator {
         this.fsdTransition = Math.max(targetTransition, this.fsdTransition - dt * transitionSpeed);
       }
 
-      // Interpolate Width: 0.4 (Manual) -> 1.2 (Auto)
-      const minWidth = 0.4;
-      const maxWidth = 1.2;
+      // Interpolate Width: 0.6 (Manual) -> 2.0 (Auto) - Tesla FSD style
+      const minWidth = 0.6;
+      const maxWidth = 2.0;
       const currentWidth = minWidth + (maxWidth - minWidth) * this.fsdTransition;
       this.currentPathMesh.material.uniforms.lineWidth.value = currentWidth;
 
-      // Interpolate Color: Grey -> Blue
-      const fsdBlue = new THREE.Color(0x2b80ff);
-      const fsdGrey = new THREE.Color(0x555555);
+      // Interpolate Color: Grey -> Vibrant Blue
+      const fsdBlue = new THREE.Color(0x3b82f6); // Brighter blue
+      const fsdGrey = new THREE.Color(0x6b7280);
       const currentColor = fsdGrey.clone().lerp(fsdBlue, this.fsdTransition);
       this.currentPathMesh.material.uniforms.color.value = currentColor;
 
-      // 3. Slowing Down Opacity
-      // Only dim if actually stopped or barely moving, otherwise keep solid
+      // 3. Opacity based on speed (FSD style)
+      // Slightly dim when stopped, otherwise keep visible
       if (this.car.velocity < 0.5) {
-        this.currentPathMesh.material.uniforms.opacity.value = 0.6;
+        this.currentPathMesh.material.uniforms.opacity.value = 0.7;
       } else {
-        this.currentPathMesh.material.uniforms.opacity.value = 1.0;
+        this.currentPathMesh.material.uniforms.opacity.value = 0.85;
       }
     }
 
@@ -1082,4 +1161,6 @@ export default class Simulator {
 
     requestAnimationFrame(this.step.bind(this));
   }
+
+
 }

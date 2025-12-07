@@ -21,6 +21,7 @@ export default class LanePath {
     this.leftBoundaries = [];
     this.rightBoundaries = [];
     this.width = 7.4; // Default width (2 lanes)
+    this.roadType = 'regular'; // 'regular' or 'highway'
   }
 
   get centerline() {

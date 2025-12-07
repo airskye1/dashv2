@@ -1,0 +1,75 @@
+{
+    "name": "Reverse FSD Test",
+    "lanePath": {
+        "anchors": [
+            {
+                "x": 0,
+                "y": 0
+            },
+            {
+                "x": 20,
+                "y": 0
+            },
+            {
+                "x": 40,
+                "y": 5
+            },
+            {
+                "x": 60,
+                "y": 5
+            },
+            {
+                "x": 80,
+                "y": 0
+            }
+        ],
+        "width": 7.4,
+        "roadType": "regular"
+    },
+    "staticObstacles": [
+        {
+            "center": {
+                "x": 25,
+                "y": 0
+            },
+            "size": {
+                "x": 3,
+                "y": 4
+            },
+            "rotation": 0,
+            "comment": "Obstacle directly in path - will trigger reverse"
+        },
+        {
+            "center": {
+                "x": 45,
+                "y": 3
+            },
+            "size": {
+                "x": 2,
+                "y": 3
+            },
+            "rotation": 0.5,
+            "comment": "Side obstacle to test proximity detection"
+        },
+        {
+            "center": {
+                "x": 65,
+                "y": 5
+            },
+            "size": {
+                "x": 4,
+                "y": 3
+            },
+            "rotation": 0,
+            "comment": "Another blocking obstacle"
+        }
+    ],
+    "dynamicObstacles": [],
+    "stopSigns": [],
+    "trafficLights": [],
+    "parkingSpots": [],
+    "intersections": [],
+    "initialSpeed": 5,
+    "speedLimit": 10,
+    "lanePreference": 0
+}

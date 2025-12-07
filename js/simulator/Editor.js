@@ -6,6 +6,7 @@ import ParkingSpot from "../autonomy/ParkingSpot.js";
 import DynamicObstacleEditor from "./DynamicObstacleEditor.js";
 import ScenarioManager from "./ScenarioManager.js";
 import ShareManager from "./ShareManager.js";
+import IntersectionObject from "../objects/IntersectionObject.js";
 import { formatDate } from "../Helpers.js";
 
 const GROUND_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0));
@@ -45,6 +46,7 @@ export default class Editor {
     this.stopSignIndex = 0;
     this.trafficLightIndex = 0;
     this.parkingSpotIndex = 0;
+    this.intersectionIndex = 0;
     this.previousSavedName = null;
     this.scenarioManager = new ScenarioManager(this);
     this.shareManager = new ShareManager();
@@ -66,10 +68,13 @@ export default class Editor {
     this.trafficLightGroup.renderOrder = 2;
     this.parkingSpotGroup = new THREE.Group();
     this.parkingSpotGroup.renderOrder = 0; // On ground
+    this.intersectionGroup = new THREE.Group();
+    this.intersectionGroup.renderOrder = 0; // On ground
     this.group.add(this.obstacleGroup);
     this.group.add(this.stopSignGroup);
     this.group.add(this.trafficLightGroup);
     this.group.add(this.parkingSpotGroup);
+    this.group.add(this.intersectionGroup);
     this.group.add(this.pointGroup);
     scene.add(this.group);
 
@@ -104,6 +109,11 @@ export default class Editor {
       this.editorParkingSpotsButton.addEventListener('click', e => this.changeEditMode('parkingSpots'));
     }
 
+    this.editorIntersectionsButton = document.getElementById('editor-intersections');
+    if (this.editorIntersectionsButton) {
+      this.editorIntersectionsButton.addEventListener('click', e => this.changeEditMode('intersections'));
+    }
+
     this.editorRoadBox = document.getElementById('editor-road-box');
     this.editorRoadWidthDom = document.getElementById('editor-road-width');
     this.initialSpeedDom = document.getElementById('editor-initial-speed');
@@ -122,11 +132,19 @@ export default class Editor {
     this.laneLeftDom.addEventListener('click', e => this._changeLanePreference(-1));
     this.laneRightDom.addEventListener('click', e => this._changeLanePreference(+1));
 
+    // Road type toggle
+    this.roadRegularDom = document.getElementById('editor-road-regular');
+    this.roadHighwayDom = document.getElementById('editor-road-highway');
+
+    this.roadRegularDom.addEventListener('click', () => this._changeRoadType('regular'));
+    this.roadHighwayDom.addEventListener('click', () => this._changeRoadType('highway'));
+
     this.initialSpeedDom.value = INITIAL_SPEED_FALLBACK;
     this.speedLimitDom.value = SPEED_LIMIT_FALLBACK;
     this._changeLanePreference(LANE_PREFERENCE_FALLBACK);
     this.lanePath.width = ROAD_WIDTH_FALLBACK;
     if (this.editorRoadWidthDom) this.editorRoadWidthDom.value = ROAD_WIDTH_FALLBACK;
+
 
 
     this.statsRoadLength = document.getElementById('editor-stats-road-length');
@@ -160,6 +178,10 @@ export default class Editor {
     document.getElementById('editor-clear-stop-signs').addEventListener('click', this.clearStopSigns.bind(this));
     document.getElementById('editor-clear-traffic-lights').addEventListener('click', this.clearTrafficLights.bind(this));
     document.getElementById('editor-clear-parking-spots').addEventListener('click', this.clearParkingSpots.bind(this));
+    const clearIntersectionsBtn = document.getElementById('editor-clear-intersections');
+    if (clearIntersectionsBtn) {
+      clearIntersectionsBtn.addEventListener('click', this.clearIntersections.bind(this));
+    }
     document.getElementById('editor-clear-path').addEventListener('click', this.clearPath.bind(this));
     document.getElementById('editor-clear-all').addEventListener('click', this.clearAll.bind(this));
 
@@ -225,6 +247,9 @@ export default class Editor {
         this.rightBoundaryObject.material.uniforms.resolution.value = resolution;
       }, 0);
     });
+
+    // Initialize road type after objects are created
+    this._changeRoadType('regular');
   }
 
   get enabled() {
@@ -233,7 +258,7 @@ export default class Editor {
 
   set enabled(e) {
     this.isEnabled = e;
-    this.pointGroup.visible = this.obstacleGroup.visible = this.stopSignGroup.visible = this.trafficLightGroup.visible = this.parkingSpotGroup.visible = !!this.isEnabled
+    this.pointGroup.visible = this.obstacleGroup.visible = this.stopSignGroup.visible = this.trafficLightGroup.visible = this.parkingSpotGroup.visible = this.intersectionGroup.visible = !!this.isEnabled;
   }
 
   get staticObstacles() {
@@ -410,6 +435,13 @@ export default class Editor {
     } else if (this.rotatingParkingSpot) {
       const rotation = (this.dragOffset.x - this.mouse.x) * 2 * Math.PI;
       this.rotatingParkingSpot.rotation.z = Math.wrapAngle(rotation + this.initialObstacleRotation);
+    } else if (this.draggingIntersection) {
+      if (intersection != null) {
+        this.draggingIntersection.position.copy(intersection.clone().add(this.dragOffset));
+      }
+    } else if (this.rotatingIntersection) {
+      const rotation = (this.dragOffset.x - this.mouse.x) * 2 * Math.PI;
+      this.rotatingIntersection.rotation.y = Math.wrapAngle(rotation + this.initialObstacleRotation);
     } else {
       this.pointGroup.children.forEach(p => {
         p.material.color.set(NORMAL_POINT_COLOR)
@@ -509,6 +541,7 @@ export default class Editor {
     if (this.editorStopSignsButton) this.editorStopSignsButton.classList.add('is-outlined');
     if (this.editorTrafficLightsButton) this.editorTrafficLightsButton.classList.add('is-outlined');
     if (this.editorParkingSpotsButton) this.editorParkingSpotsButton.classList.add('is-outlined');
+    if (this.editorIntersectionsButton) this.editorIntersectionsButton.classList.add('is-outlined');
 
     this.editorPathButton.classList.remove('is-selected');
     this.editorObstaclesButton.classList.remove('is-selected');
@@ -516,6 +549,7 @@ export default class Editor {
     if (this.editorStopSignsButton) this.editorStopSignsButton.classList.remove('is-selected');
     if (this.editorTrafficLightsButton) this.editorTrafficLightsButton.classList.remove('is-selected');
     if (this.editorParkingSpotsButton) this.editorParkingSpotsButton.classList.remove('is-selected');
+    if (this.editorIntersectionsButton) this.editorIntersectionsButton.classList.remove('is-selected');
 
     this.editorRoadBox.classList.add('is-hidden');
     this.helpPath.classList.add('is-hidden');
@@ -563,6 +597,14 @@ export default class Editor {
       if (this.editorParkingSpotsButton) {
         this.editorParkingSpotsButton.classList.remove('is-outlined');
         this.editorParkingSpotsButton.classList.add('is-selected');
+      }
+      this.helpStaticObstacles.classList.remove('is-hidden');
+      this.dynamicObstacleEditor.disable();
+    } else if (mode == 'intersections') {
+      this.editMode = 'intersections';
+      if (this.editorIntersectionsButton) {
+        this.editorIntersectionsButton.classList.remove('is-outlined');
+        this.editorIntersectionsButton.classList.add('is-selected');
       }
       this.helpStaticObstacles.classList.remove('is-hidden');
       this.dynamicObstacleEditor.disable();
@@ -642,6 +684,35 @@ export default class Editor {
     this.parkingSpotGroup.remove(parkingSpot);
   }
 
+  addIntersection(center, rotation = 0) {
+    try {
+      console.log('addIntersection called with:', center);
+      // Use the actual IntersectionObject
+      const centerPos = { x: center.x, y: center.z };
+
+      // Safety check for IntersectionObject
+      if (typeof IntersectionObject === 'undefined') {
+        console.error('IntersectionObject class is not defined!');
+        alert('Error: IntersectionObject not loaded. See console.');
+        return;
+      }
+
+      const intersection = new IntersectionObject(centerPos, 14, rotation);
+      intersection.userData = { index: this.intersectionIndex || 0, size: 14 };
+      this.intersectionIndex = (this.intersectionIndex || 0) + 1;
+
+      this.intersectionGroup.add(intersection);
+      console.log('Intersection added successfully');
+    } catch (e) {
+      console.error('Error adding intersection:', e);
+      alert('Error adding intersection: ' + e.message);
+    }
+  }
+
+  removeIntersection(intersection) {
+    this.intersectionGroup.remove(intersection);
+  }
+
   clearStaticObstacles() {
     this.group.remove(this.obstacleGroup);
     this.obstacleGroup = new THREE.Group();
@@ -675,6 +746,14 @@ export default class Editor {
     this.parkingSpotIndex = 0;
   }
 
+  clearIntersections() {
+    this.group.remove(this.intersectionGroup);
+    this.intersectionGroup = new THREE.Group();
+    this.intersectionGroup.renderOrder = 0;
+    this.group.add(this.intersectionGroup);
+    this.intersectionIndex = 0;
+  }
+
   clearAll() {
     this.clearPath();
     this.clearPath();
@@ -682,6 +761,7 @@ export default class Editor {
     this.clearStopSigns();
     this.clearTrafficLights();
     this.clearParkingSpots();
+    this.clearIntersections();
     this.dynamicObstacleEditor.clearDynamicObstacles();
   }
 
@@ -705,13 +785,13 @@ export default class Editor {
       this.rightBoundaryObject.geometry = rightBoundary.geometry;
       this.rightBoundaryObject.material.uniforms.resolution.value.set(this.canvas.clientWidth, this.canvas.clientHeight);
     } else {
-      this.centerlineObject.geometry.dispose();
+      if (this.centerlineObject.geometry) this.centerlineObject.geometry.dispose();
       this.centerlineObject.geometry = new THREE.Geometry();
 
-      this.leftBoundaryObject.geometry.dispose();
+      if (this.leftBoundaryObject.geometry) this.leftBoundaryObject.geometry.dispose();
       this.leftBoundaryObject.geometry = new THREE.Geometry();
 
-      this.rightBoundaryObject.geometry.dispose();
+      if (this.rightBoundaryObject.geometry) this.rightBoundaryObject.geometry.dispose();
       this.rightBoundaryObject.geometry = new THREE.Geometry();
     }
 
@@ -770,13 +850,13 @@ export default class Editor {
   }
 
   keyDown(event) {
-    if (event.repeat || (this.editMode != 'path' && this.editMode != 'staticObstacles' && this.editMode != 'stopSigns' && this.editMode != 'trafficLights' && this.editMode != 'parkingSpots')) return;
+    if (event.repeat || (this.editMode != 'path' && this.editMode != 'staticObstacles' && this.editMode != 'stopSigns' && this.editMode != 'trafficLights' && this.editMode != 'parkingSpots' && this.editMode != 'intersections')) return;
 
     if (event.key == 'Shift') {
       this.removeMode = true;
       this.canvas.classList.add('editor-pointing');
       event.preventDefault();
-    } else if (event.key == 'Control' && (this.editMode == 'staticObstacles' || this.editMode == 'stopSigns' || this.editMode == 'trafficLights' || this.editMode == 'parkingSpots')) {
+    } else if (event.key == 'Control' && (this.editMode == 'staticObstacles' || this.editMode == 'stopSigns' || this.editMode == 'trafficLights' || this.editMode == 'parkingSpots' || this.editMode == 'intersections')) {
       this.rotateMode = true;
       this.canvas.classList.add('editor-pointing');
       event.preventDefault();
@@ -794,6 +874,7 @@ export default class Editor {
   }
 
   mouseDown(event) {
+    console.log('[Editor] mouseDown called. Enabled:', this.isEnabled, 'Button:', event.button, 'EditMode:', this.editMode);
     if (!this.isEnabled || event.button != 0) return;
 
     this.mouse.x = (event.offsetX / this.canvas.clientWidth) * 2 - 1;
@@ -938,6 +1019,79 @@ export default class Editor {
           this.addParkingSpot(intersection);
         }
       }
+    } else if (this.editMode == 'intersections') {
+      console.log('[Intersections] Mode active');
+      // Intersections snap to road endpoints (first or last anchor)
+      if (!this.removeMode && !this.rotateMode) {
+        console.log('[Intersections] Not in remove/rotate mode');
+        // Check if we're near the start or end of the road
+        if (this.lanePath.anchors.length >= 2) {
+          console.log('[Intersections] Road has', this.lanePath.anchors.length, 'anchors');
+          const intersection = this.raycaster.ray.intersectPlane(GROUND_PLANE);
+          if (intersection != null) {
+            // Check for Alt key specific bypass
+            if (event.altKey) {
+              console.log('[Intersections] Alt key held - free placement');
+              this.addIntersection(intersection);
+              return;
+            }
+            console.log('[Intersections] Click at:', intersection.x.toFixed(2), intersection.z.toFixed(2));
+            const clickPos = new THREE.Vector2(intersection.x, intersection.z);
+            const firstAnchor = this.lanePath.anchors[0];
+            const lastAnchor = this.lanePath.anchors[this.lanePath.anchors.length - 1];
+
+            const distToFirst = clickPos.distanceTo(firstAnchor);
+            const distToLast = clickPos.distanceTo(lastAnchor);
+            console.log('[Intersections] Dist to first:', distToFirst.toFixed(2), 'last:', distToLast.toFixed(2));
+            const snapDistance = 15; // Increased snap distance
+
+            let snapPoint = null;
+            if (distToFirst < snapDistance && distToFirst <= distToLast) {
+              snapPoint = firstAnchor;
+              console.log('[Intersections] Snapping to FIRST anchor');
+            } else if (distToLast < snapDistance) {
+              snapPoint = lastAnchor;
+              console.log('[Intersections] Snapping to LAST anchor');
+            } else {
+              console.log('[Intersections] Not close enough to any endpoint (need <', snapDistance, ')');
+            }
+
+            if (snapPoint) {
+              // Check if intersection already exists at this point
+              const existingIntersection = this.intersectionGroup.children.find(child => {
+                const childPos = new THREE.Vector2(child.position.x, child.position.z);
+                return childPos.distanceTo(snapPoint) < 2;
+              });
+
+              if (!existingIntersection) {
+                console.log('[Intersections] Creating at:', snapPoint.x.toFixed(2), snapPoint.y.toFixed(2));
+                // Create intersection at road endpoint
+                const intersectionPos = new THREE.Vector3(snapPoint.x, 0, snapPoint.y);
+                this.addIntersection(intersectionPos);
+                console.log('[Intersections] Created! Total intersections:', this.intersectionGroup.children.length);
+              } else {
+                console.log('[Intersections] Already exists at this point');
+              }
+            }
+          }
+        } else {
+          console.log('[Intersections] Need at least 2 road points, have:', this.lanePath.anchors.length);
+        }
+      } else if (this.removeMode) {
+        // Allow removing intersections
+        let picked = null;
+        this.raycaster.intersectObjects(this.intersectionGroup.children, true).forEach(o => {
+          let obj = o.object;
+          while (obj.parent && obj.parent !== this.intersectionGroup) {
+            obj = obj.parent;
+          }
+          if (picked === null || obj.userData.index > (picked.userData && picked.userData.index || 0)) picked = obj;
+        });
+
+        if (picked) {
+          this.removeIntersection(picked);
+        }
+      }
     }
   }
 
@@ -974,6 +1128,8 @@ export default class Editor {
     this.rotatingTrafficLight = null;
     this.draggingParkingSpot = null;
     this.rotatingParkingSpot = null;
+    this.draggingIntersection = null;
+    this.rotatingIntersection = null;
     this.canvas.classList.remove('editor-grab', 'editor-grabbing');
   }
 
@@ -1002,6 +1158,33 @@ export default class Editor {
       this.laneLeftDom.classList.remove('is-outlined');
       this.laneLeftDom.classList.add('is-selected');
     }
+  }
+
+  _changeRoadType(type) {
+    this.lanePath.roadType = type;
+
+    if (type === 'highway') {
+      this.roadRegularDom.classList.add('is-outlined');
+      this.roadRegularDom.classList.remove('is-selected');
+      this.roadHighwayDom.classList.remove('is-outlined');
+      this.roadHighwayDom.classList.add('is-selected');
+
+      // Highway is wider (4 lanes)
+      this.lanePath.width = 14.8;
+      if (this.editorRoadWidthDom) this.editorRoadWidthDom.value = 14.8;
+    } else {
+      this.roadHighwayDom.classList.add('is-outlined');
+      this.roadHighwayDom.classList.remove('is-selected');
+      this.roadRegularDom.classList.remove('is-outlined');
+      this.roadRegularDom.classList.add('is-selected');
+
+      // Regular road (2 lanes)
+      this.lanePath.width = 7.4;
+      if (this.editorRoadWidthDom) this.editorRoadWidthDom.value = 7.4;
+    }
+
+    this.lanePath.resampleAll();
+    this.rebuildPathGeometry();
   }
 
   saveClicked() {

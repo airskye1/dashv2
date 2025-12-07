@@ -56,9 +56,12 @@ export default class AutonomousController {
     }
   }
 
-  control(pose, wheelAngle, velocity, dt) {
+  control(pose, wheelAngle, velocity, dt, isAutonomous, direction = 1) {
     const pathPoses = this.path.poses;
+
+    // Always track front axle for path following
     const frontAxlePos = Car.getFrontAxlePosition(pose.pos, pose.rot);
+
     const [nextIndex, progress] = this.findNextIndex(frontAxlePos);
     this.nextIndex = nextIndex;
 
@@ -77,54 +80,67 @@ export default class AutonomousController {
 
       const currentAccel = (velocity - this.prevVelocity) / dt;
       const prevNextDist = pathPoses[this.nextIndex].pos.distanceTo(pathPoses[this.nextIndex - 1].pos);
-      const targetVelocity = Math.sqrt(2 * pathPoses[nextIndex].acceleration * prevNextDist * Math.clamp(progress, 0, 1) + pathPoses[this.nextIndex - 1].velocity * pathPoses[this.nextIndex - 1].velocity);
-      const diffVelocity = targetVelocity - velocity;
-      const diffAccel = pathPoses[this.nextIndex].acceleration - currentAccel;
-      const targetAccel = kp_a * diffVelocity + kd_a * diffAccel + kff_a * pathPoses[this.nextIndex].acceleration;
 
-      if (targetAccel > 0)
-        gas = Math.min(targetAccel / Car.MAX_GAS_ACCEL, 1);
-      else
-        brake = Math.min(-targetAccel / Car.MAX_BRAKE_DECEL, 1);
+      // Target velocity - always positive magnitude from planner
+      const targetSpeedMag = Math.sqrt(2 * Math.abs(pathPoses[nextIndex].acceleration) * prevNextDist * Math.clamp(progress, 0, 1) + pathPoses[this.nextIndex - 1].velocity * pathPoses[this.nextIndex - 1].velocity);
+
+      // Apply direction for signed target velocity
+      const targetVelocity = targetSpeedMag * direction;
+      const diffVelocity = targetVelocity - velocity;
+      const targetAccel = kp_a * diffVelocity;
+
+      // Throttle/Brake logic
+      if (direction === 1) {
+        // Forward
+        if (targetAccel > 0) gas = Math.min(targetAccel / Car.MAX_GAS_ACCEL, 1);
+        else brake = Math.min(-targetAccel / Car.MAX_BRAKE_DECEL, 1);
+      } else {
+        // Reverse - gas creates negative acceleration
+        if (targetAccel < 0) gas = Math.min(-targetAccel / Car.MAX_GAS_ACCEL, 1);
+        else brake = Math.min(targetAccel / Car.MAX_BRAKE_DECEL, 1);
+      }
 
       this.prevVelocity = velocity;
 
-      const closestFrontPathPos = projectPointOnSegment(frontAxlePos, pathPoses[this.nextIndex - 1].frontPos, pathPoses[this.nextIndex].frontPos)[0];
+      // Lateral Control - project front axle onto path
+      const p1 = pathPoses[this.nextIndex - 1].frontPos;
+      const p2 = pathPoses[this.nextIndex].frontPos;
+      const closestPos = projectPointOnSegment(frontAxlePos, p1, p2)[0];
 
-      // Determine the desired heading at the specific point on the front path by lerping between prevHeading and nextHeading using progress as the weight
-      const prevHeading = this.nextIndex > 1 ? pathPoses[nextIndex].frontPos.clone().sub(pathPoses[nextIndex - 2].frontPos).angle() : pathPoses[0].rot;
-      const nextHeading = this.nextIndex < pathPoses.length - 1 ? pathPoses[nextIndex + 1].frontPos.clone().sub(pathPoses[nextIndex - 1].frontPos).angle() : pathPoses[pathPoses.length - 1].rot;
-      const desiredHeading = prevHeading + (nextHeading - prevHeading) * progress;
+      // Heading from path
+      const pathHeading = Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
-      // Determine if the front axle is to the left or right of the front path
-      const pathVec = pathPoses[nextIndex].frontPos.clone().sub(pathPoses[nextIndex - 1].frontPos).normalize();
+      // For reverse, path headings are already flipped by the planner
+      // So desired heading = pathHeading
+      let desiredHeading = pathHeading;
+
+      // Heading error
+      let headingError = Math.wrapAngle(pose.rot - desiredHeading);
+
+      // Cross Track Error
+      const pathVec = p2.clone().sub(p1).normalize();
       const zero = new THREE.Vector2(0, 0);
-      const left = pathVec.clone().rotateAround(zero, Math.PI / 2).add(closestFrontPathPos);
-      const right = pathVec.clone().rotateAround(zero, -Math.PI / 2).add(closestFrontPathPos);
+      const left = pathVec.clone().rotateAround(zero, Math.PI / 2).add(closestPos);
+      const right = pathVec.clone().rotateAround(zero, -Math.PI / 2).add(closestPos);
       const dir = frontAxlePos.distanceToSquared(left) < frontAxlePos.distanceToSquared(right) ? -1 : 1;
 
       const k = 4;
       const gain = 0.8;
-      const crossTrackError = frontAxlePos.distanceTo(closestFrontPathPos);
-      const headingError = Math.wrapAngle(pose.rot - desiredHeading);
-
-      //phi = -headingError + gain * Math.atan(k * dir * crossTrackError / velocity);
+      const crossTrackError = frontAxlePos.distanceTo(closestPos);
 
       const curv = pathPoses[nextIndex - 1].curv + (pathPoses[nextIndex].curv - pathPoses[nextIndex - 1].curv) * progress;
 
-      phi = Math.atan(curv * Car.WHEEL_BASE) + gain * Math.atan(k * dir * crossTrackError / Math.max(velocity, 0.01));
+      // Stanley controller
+      const vel = Math.max(Math.abs(velocity), 0.5); // Avoid division by zero
+      phi = Math.atan(curv * Car.WHEEL_BASE) - headingError + gain * Math.atan(k * dir * crossTrackError / vel);
 
-      const checkSteer = Math.clamp((phi - wheelAngle) / dt / Car.MAX_STEER_SPEED, -1, 1);
+      // For reverse, flip the steering output
+      if (direction === -1) {
+        phi = -phi;
+      }
     }
 
     const phiError = phi - wheelAngle;
-    /*
-    const dPhiError = (phiError - this.prevPhiError) / dt;
-    this.prevPhiError = phiError;
-    
-    const steer = Math.clamp(12 * phiError + 0.8 * dPhiError, -1, 1);
-    */
-
     const steer = Math.clamp(phiError / dt / Car.MAX_STEER_SPEED, -1, 1);
 
     return { gas, brake, steer };

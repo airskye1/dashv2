@@ -4,6 +4,8 @@ import PathPlanner from "../js/autonomy/path-planning/PathPlanner.js";
 import LanePath from "../js/autonomy/LanePath.js";
 import StaticObstacle from "../js/autonomy/StaticObstacle.js";
 import DynamicObstacle from "../js/autonomy/DynamicObstacle.js";
+import StopSign from "../js/autonomy/StopSign.js";
+import TrafficLight from "../js/autonomy/TrafficLight.js";
 
 function init() {
   let pathPlanner;
@@ -24,7 +26,10 @@ function init() {
     LanePath.hydrate(lanePath);
     staticObstacles.forEach(o => StaticObstacle.hydrate(o));
     dynamicObstacles.forEach(o => DynamicObstacle.hydrate(o));
-    // StopSign, TrafficLight, ParkingSpot hydration if needed (simple objects for now)
+
+    // Hydrate stop signs and traffic lights to restore THREE.Vector2 for pos
+    if (stopSigns) stopSigns.forEach(o => StopSign.hydrate(o));
+    if (trafficLights) trafficLights.forEach(o => TrafficLight.hydrate(o));
 
     if (reset) pathPlanner.reset();
 
