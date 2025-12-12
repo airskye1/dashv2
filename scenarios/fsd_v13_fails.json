@@ -1,0 +1,92 @@
+{
+    "name": "FSD v13 Challenge: Construction & Parking",
+    "lanePath": {
+        "anchors": [
+            {
+                "x": 0,
+                "y": 0
+            },
+            {
+                "x": 50,
+                "y": 0
+            },
+            {
+                "x": 100,
+                "y": 0
+            },
+            {
+                "x": 100,
+                "y": 50
+            },
+            {
+                "x": 50,
+                "y": 50
+            }
+        ],
+        "width": 8.0,
+        "roadType": "regular"
+    },
+    "staticObstacles": [
+        {
+            "center": {
+                "x": 30,
+                "y": 2
+            },
+            "size": {
+                "x": 2,
+                "y": 2
+            },
+            "rotation": 0,
+            "comment": "Construction Barrel - forces slight swerve"
+        },
+        {
+            "center": {
+                "x": 35,
+                "y": 1
+            },
+            "size": {
+                "x": 2,
+                "y": 2
+            },
+            "rotation": 0,
+            "comment": "Construction Barrel"
+        },
+        {
+            "center": {
+                "x": 40,
+                "y": 0
+            },
+            "size": {
+                "x": 2,
+                "y": 2
+            },
+            "rotation": 0.5,
+            "comment": "Construction Cone"
+        }
+    ],
+    "dynamicObstacles": [],
+    "stopSigns": [
+        {
+            "pos": {
+                "x": 20,
+                "y": 0
+            },
+            "rot": 0
+        }
+    ],
+    "trafficLights": [],
+    "parkingSpots": [
+        {
+            "pos": {
+                "x": 80,
+                "y": 0
+            },
+            "rot": 1.57,
+            "id": "tight_spot"
+        }
+    ],
+    "intersections": [],
+    "initialSpeed": 5,
+    "speedLimit": 10,
+    "lanePreference": 0
+}

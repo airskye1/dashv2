@@ -102,6 +102,9 @@ export default class Simulator {
 
     // FSD-like Speed Profiles: 'chill', 'standard', 'hurry'
     this.speedProfile = 'standard';
+    this.autoparkState = { active: false, selectedSpot: null, phase: 'idle' };
+    this.parkingMarkersContainer = document.getElementById('parking-markers-container');
+    this.parkingMarkers = []; // Array of { element, spot }
     this.planningDirection = 1; // 1 for forward, -1 for reverse
     this.alertService = new AlertService();
 
@@ -176,9 +179,43 @@ export default class Simulator {
     this.trafficLights = [];
     this.dynamicObstacles = [];
 
+    // Autopark UI handlers
+    this.btnStartAutopark = document.getElementById('btn-start-autopark');
+    this.btnStopAutopark = document.getElementById('btn-stop-autopark');
+    this.autoparkControls = document.getElementById('autopark-controls');
+    this.autoparkStatus = document.getElementById('autopark-status');
+    this.autoparkStatusText = document.getElementById('autopark-status-text');
+
+    if (this.btnStartAutopark) {
+      this.btnStartAutopark.addEventListener('click', () => {
+        if (this.autoparkState.selectedSpot) {
+          this.autoparkState.active = true;
+          this.updateAutoparkUI();
+          this.alertService.show('Thinking...', 'info');
+
+          // Delegate entirely to EnhancedAutonomousController
+          this.carControllerMode = 'autopark';
+          if (this.autonomousCarController) {
+            this.autonomousCarController.reset();
+            this.autonomousCarController.startParking(this.autoparkState.selectedSpot);
+          }
+          this.plannerReset = true;
+        }
+      });
+    }
+
+    if (this.btnStopAutopark) {
+      this.btnStopAutopark.addEventListener('click', () => {
+        this.autoparkState.active = false;
+        this.updateAutoparkUI();
+        this.alertService.show('Autopark Cancelled', 'error');
+        this.carControllerMode = 'manual';
+      });
+    }
+
     // Keyboard shortcuts for speed profiles and lane changes
     window.addEventListener('keydown', e => {
-      if (this.carControllerMode === 'autonomous' && !this.editor.enabled) {
+      if ((this.carControllerMode === 'autonomous' || this.carControllerMode === 'autopark') && !this.editor.enabled) {
         // Speed profiles: 1, 2, 3
         if (e.key === '1') {
           this.speedProfile = 'chill';
@@ -545,6 +582,12 @@ export default class Simulator {
     this.autonomousModeButton.classList.add('is-selected', 'is-link');
     this.manualModeButton.classList.add('is-outlined');
     this.manualModeButton.classList.remove('is-selected');
+
+    // Cancel autopark if active when switching to regular autonomous
+    if (this.carControllerMode === 'autopark') {
+      this.autoparkState.active = false;
+      this.updateAutoparkUI();
+    }
 
     this.carControllerMode = 'autonomous';
   }
@@ -951,7 +994,7 @@ export default class Simulator {
     }
 
     // Properties based on current mode
-    const isAuto = this.carControllerMode === 'autonomous';
+    const isAuto = this.carControllerMode === 'autonomous' || this.carControllerMode === 'autopark';
     const targetWidth = isAuto ? 2.0 : 0.6; // Wider for auto (Tesla FSD style)
     const targetColor = isAuto ? fsdBlue : fsdGrey;
 
@@ -997,12 +1040,12 @@ export default class Simulator {
 
       let autonomousControls = { steer: 0, brake: 0, gas: 0 };
       if (this.autonomousCarController)
-        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous', this.planningDirection);
+        autonomousControls = this.autonomousCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt, this.carControllerMode == 'autonomous' || this.carControllerMode == 'autopark', this.planningDirection);
       else if (this.autonomousCarController === null)
         autonomousControls = { steer: 0, brake: 1, gas: 0 };
 
       // FSD-style reverse/unstuck - uses autopilot with reverse path
-      if (this.carControllerMode == 'autonomous') {
+      if (this.carControllerMode == 'autonomous' || this.carControllerMode == 'autopark') {
         if (!this.reverseController) {
           const obstacles = this.staticObstacles.concat(this.dynamicObstacles);
           this.reverseController = new ReverseController(this.car, obstacles, this.editor.lanePath);
@@ -1030,7 +1073,7 @@ export default class Simulator {
         }
       }
 
-      const controls = this.carControllerMode == 'autonomous' ? autonomousControls : manualControls;
+      const controls = (this.carControllerMode == 'autonomous' || this.carControllerMode == 'autopark') ? autonomousControls : manualControls;
 
       this.car.update(controls, dt);
       this.physics.step(dt);
@@ -1125,7 +1168,7 @@ export default class Simulator {
       uvs.needsUpdate = true;
 
       // 2. Mode Transition (Expand/Contract)
-      const isAuto = this.carControllerMode === 'autonomous';
+      const isAuto = this.carControllerMode === 'autonomous' || this.carControllerMode === 'autopark';
       const targetTransition = isAuto ? 1.0 : 0.0;
       const transitionSpeed = 3.0; // Speed of expansion/contraction
 
@@ -1159,8 +1202,102 @@ export default class Simulator {
 
     this.prevTimestamp = timestamp;
 
+    // Update parking marker positions
+    this._updateParkingMarkersPosition();
+
     requestAnimationFrame(this.step.bind(this));
   }
 
 
+  // Click handler for parking spot selection
+  onCanvasClick(event) {
+    // Handle parking spot selection in 3D view implementation if needed later
+  }
+
+  selectParkingSpot(spot) {
+    this.autoparkState.selectedSpot = spot;
+    this.updateAutoparkUI();
+    // Re-create markers to update selection state
+    this._updateParkingMarkers();
+  }
+
+  updateAutoparkUI() {
+    if (!this.autoparkControls) return;
+
+    if (this.autoparkState.selectedSpot) {
+      this.autoparkControls.classList.remove('is-hidden');
+      this.autoparkControls.style.display = 'block'; // Ensure visibility
+
+      if (this.autoparkState.active) {
+        if (this.btnStartAutopark) this.btnStartAutopark.classList.add('is-hidden');
+        if (this.btnStopAutopark) this.btnStopAutopark.classList.remove('is-hidden');
+        if (this.autoparkStatus) this.autoparkStatus.classList.remove('is-hidden');
+      } else {
+        if (this.btnStartAutopark) this.btnStartAutopark.classList.remove('is-hidden');
+        if (this.btnStopAutopark) this.btnStopAutopark.classList.add('is-hidden');
+        if (this.autoparkStatus) this.autoparkStatus.classList.add('is-hidden');
+      }
+    } else {
+      this.autoparkControls.classList.add('is-hidden');
+      this.autoparkControls.style.display = 'none';
+    }
+  }
+
+  _updateParkingMarkers() {
+    if (!this.parkingMarkersContainer) return;
+
+    // Clear existing markers
+    this.parkingMarkers.forEach(m => m.element.remove());
+    this.parkingMarkers = [];
+
+    // Create markers for each parking spot
+    this.parkingSpots.forEach((spot, index) => {
+      const marker = document.createElement('div');
+      marker.className = 'parking-marker';
+      if (this.autoparkState.selectedSpot === spot) {
+        marker.classList.add('selected');
+      }
+
+      marker.innerHTML = `
+        <div class="parking-marker-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${this.autoparkState.selectedSpot === spot ? '#10b981' : 'rgba(59, 130, 246, 0.8)'}" stroke="white" stroke-width="2"/>
+            <text x="12" y="17" text-anchor="middle" fill="white" font-size="12" font-weight="bold">P</text>
+          </svg>
+        </div>
+        <div class="parking-marker-label">Spot ${index + 1}</div>
+      `;
+      marker.addEventListener('click', () => {
+        this.selectParkingSpot(spot);
+      });
+
+      this.parkingMarkersContainer.appendChild(marker);
+      this.parkingMarkers.push({ element: marker, spot });
+    });
+  }
+
+  _updateParkingMarkersPosition() {
+    if (!this.parkingMarkersContainer || this.editor.enabled) return;
+
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+
+    this.parkingMarkers.forEach(({ element, spot }) => {
+      const pos3D = new THREE.Vector3(spot.pos.x, 2, spot.pos.y);
+      pos3D.project(this.camera);
+
+      // Convert to screen coordinates
+      const x = (pos3D.x * 0.5 + 0.5) * rect.width + rect.left;
+      const y = (-pos3D.y * 0.5 + 0.5) * rect.height + rect.top;
+
+      // Check if behind camera
+      if (pos3D.z > 1) {
+        element.style.display = 'none';
+      } else {
+        element.style.display = 'block';
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+      }
+    });
+  }
 }

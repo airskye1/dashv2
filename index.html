@@ -4,6 +4,7 @@
     <title>Dash - WebGL Self-Driving Car Simulator</title>
     <link rel="stylesheet" href="vendor/bulma.min.css" />
     <link rel="stylesheet" href="css/dash.css" />
+    <link rel="stylesheet" href="css/modern-ui.css" />
     <meta charset="utf-8" />
 </head>
 
@@ -661,6 +662,79 @@
                                 <div class="name">Reverse FSD Test</div>
                             </div>
                         </div>
+
+                        <!-- FSD Failure Test Scenarios -->
+                        <div style="margin-top: 24px; padding-top: 24px; border-top: 2px solid rgba(239, 68, 68, 0.3);">
+                            <h4 class="title is-6 has-text-danger" style="margin-bottom: 12px;">
+                                <span class="icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </span>
+                                FSD Failure Test Scenarios
+                            </h4>
+                            <p class="has-text-grey-light is-size-7" style="margin-bottom: 16px;">
+                                Real-world Tesla FSD v13/v14 documented failures with sources
+                            </p>
+                        </div>
+
+                        <div class="columns">
+                            <div id="example-12" class="column" data-severity="critical">
+                                <div class="fsd-badge is-danger">CRITICAL</div>
+                                <img src="images/examples/lane_blockage.png" />
+                                <div class="name">Oncoming Traffic Turn</div>
+                                <div class="fsd-source">FSD v13.2.8 - Reddit 2025</div>
+                            </div>
+                            <div id="example-13" class="column" data-severity="high">
+                                <div class="fsd-badge is-warning">HIGH</div>
+                                <img src="images/examples/two_car_overtake.png" />
+                                <div class="name">Wrong Lane Turn</div>
+                                <div class="fsd-source">FSD v13.2.9 - Forbes 2025</div>
+                            </div>
+                        </div>
+
+                        <div class="columns">
+                            <div id="example-14" class="column" data-severity="high">
+                                <div class="fsd-badge is-warning">HIGH</div>
+                                <img src="images/examples/rough_road.png" />
+                                <div class="name">Blocked Entry</div>
+                                <div class="fsd-source">FSD v13.2.9 - Forbes 2025</div>
+                            </div>
+                            <div id="example-15" class="column" data-severity="medium">
+                                <div class="fsd-badge is-info">MEDIUM</div>
+                                <img src="images/examples/merging.png" />
+                                <div class="name">Indecisive Merge</div>
+                                <div class="fsd-source">FSD v14 - Reddit 2025</div>
+                            </div>
+                        </div>
+
+                        <div class="columns">
+                            <div id="example-16" class="column" data-severity="medium">
+                                <div class="fsd-badge is-info">MEDIUM</div>
+                                <img src="images/examples/dodging_a_speeder.png" />
+                                <div class="name">Mad Max Speeding</div>
+                                <div class="fsd-source">FSD v14 - Electrek 2025</div>
+                            </div>
+                            <div id="example-17" class="column" data-severity="critical">
+                                <div class="fsd-badge is-danger">CRITICAL</div>
+                                <img src="images/examples/lane_blockage.png" />
+                                <div class="name">Left Turn Oncoming</div>
+                                <div class="fsd-source">FSD v13.2.9 - Medium 2025</div>
+                            </div>
+                        </div>
+
+                        <div class="columns">
+                            <div id="example-18" class="column" data-severity="medium">
+                                <div class="fsd-badge is-info">MEDIUM</div>
+                                <img src="images/examples/rough_road.png" />
+                                <div class="name">Hallucination Stop</div>
+                                <div class="fsd-source">FSD v14.1.4 - Electrek 2025</div>
+                            </div>
+                            <div id="example-19" class="column" data-severity="low">
+                                <div class="fsd-badge is-light">LOW</div>
+                                <img src="images/examples/peloton.png" />
+                                <div class="name">Brake Stabbing</div>
+                                <div class="fsd-source">FSD v14.1.4 - Electrek 2025</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div id="scenarios-modal-saved-tab" class="scenarios-modal-tab is-hidden">
@@ -729,6 +803,35 @@
     </div>
 
 
+    <div id="autopark-controls" class="glass-panel fade-in-up"
+        style="position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); display: none; z-index: 20; padding: 12px 24px;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button id="btn-start-autopark" class="button is-info is-rounded is-medium btn-modern"
+                style="background-color: #3b82f6; border: none; color: white;">
+                <span class="icon">
+                    <i class="fas fa-magic"></i>
+                </span>
+                <span>Auto Park</span>
+            </button>
+            <button id="btn-stop-autopark" class="button is-danger is-rounded is-medium btn-modern"
+                style="display: none; border: none;">
+                <span class="icon">
+                    <i class="fas fa-times"></i>
+                </span>
+                <span>Cancel</span>
+            </button>
+            <div id="autopark-status" class="has-text-white has-text-weight-bold is-hidden"
+                style="margin-left: 12px; font-family: 'Inter', sans-serif;">
+                <span class="icon has-text-warning"><i class="fas fa-spinner fa-pulse"></i></span>
+                <span id="autopark-status-text">Scanning...</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="parking-markers-container"
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 10;">
+        <!-- Markers will be injected here via JS -->
+    </div>
 
     <script defer src="vendor/fontawesome-all.js"></script>
     <script src="vendor/three.js"></script>
