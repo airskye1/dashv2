@@ -26,6 +26,9 @@ import DynamicObstacle from "./autonomy/DynamicObstacle.js";
 import MovingAverage from "./autonomy/MovingAverage.js";
 import PathPlannerConfigEditor from "./simulator/PathPlannerConfigEditor.js?v=2";
 import AlertService from "./simulator/AlertService.js";
+import NewUIMode from "./ui/NewUIMode.js";
+import SpeedUnitConverter from "./ui/SpeedUnitConverter.js";
+import SettingsPanel from "./ui/SettingsPanel.js";
 
 const WELCOME_MODAL_KEY = 'dash_WelcomeModal';
 
@@ -109,15 +112,11 @@ export default class Simulator {
     this.alertService = new AlertService();
 
     // Initialize new UI components
-    import('./ui/NewUIMode.js').then(module => {
-      this.newUIMode = new module.default(this);
-      window.newUIMode = this.newUIMode;
-    });
+    this.newUIMode = new NewUIMode(this);
+    window.newUIMode = this.newUIMode;
 
-    import('./ui/SpeedUnitConverter.js').then(module => {
-      this.speedConverter = new module.default();
-      window.SpeedConverter = this.speedConverter;
-    });
+    this.speedConverter = new SpeedUnitConverter();
+    window.SpeedConverter = this.speedConverter;
 
     // Listen for settings changes
     window.addEventListener('settingsChanged', (e) => {
@@ -262,13 +261,8 @@ export default class Simulator {
       newSettingsBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-
         if (window.SettingsPanel) {
           window.SettingsPanel.open();
-        } else {
-          import('./ui/SettingsPanel.js').then(() => {
-            if (window.SettingsPanel) window.SettingsPanel.open();
-          });
         }
       });
       console.log('Simulator: Wired up NEW settings button');
