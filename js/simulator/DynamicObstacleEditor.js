@@ -1,5 +1,5 @@
 import DynamicObstacle from "../autonomy/DynamicObstacle.js";
-import PathPlannerConfigEditor from "./PathPlannerConfigEditor.js";
+import PathPlannerConfigEditor from "./PathPlannerConfigEditor.js?v=2";
 
 export default class DynamicObstacleEditor {
   constructor() {

@@ -24,7 +24,7 @@ import StopSign from "./autonomy/StopSign.js";
 import TrafficLight from "./autonomy/TrafficLight.js";
 import DynamicObstacle from "./autonomy/DynamicObstacle.js";
 import MovingAverage from "./autonomy/MovingAverage.js";
-import PathPlannerConfigEditor from "./simulator/PathPlannerConfigEditor.js";
+import PathPlannerConfigEditor from "./simulator/PathPlannerConfigEditor.js?v=2";
 import AlertService from "./simulator/AlertService.js";
 
 const WELCOME_MODAL_KEY = 'dash_WelcomeModal';
@@ -107,6 +107,49 @@ export default class Simulator {
     this.parkingMarkers = []; // Array of { element, spot }
     this.planningDirection = 1; // 1 for forward, -1 for reverse
     this.alertService = new AlertService();
+
+    // Initialize new UI components
+    import('./ui/NewUIMode.js').then(module => {
+      this.newUIMode = new module.default(this);
+      window.newUIMode = this.newUIMode;
+    });
+
+    import('./ui/SpeedUnitConverter.js').then(module => {
+      this.speedConverter = new module.default();
+      window.SpeedConverter = this.speedConverter;
+    });
+
+    // Listen for settings changes
+    window.addEventListener('settingsChanged', (e) => {
+      const settings = e.detail;
+
+      // Apply path planner settings
+      if (this.pathPlannerConfigEditor) {
+        this.pathPlannerConfigEditor._config.spatialHorizon = settings.spatialHorizon;
+        this.pathPlannerConfigEditor._config.collisionDilationS = settings.collisionDilationS;
+        this.pathPlannerConfigEditor._config.hazardDilationS = settings.hazardDilationS;
+        this.pathPlannerConfigEditor._config.laneCenterLatitude = settings.laneCenterLatitude;
+        this.pathPlannerConfigEditor._config.hardAccelerationPenalty = settings.hardAccelerationPenalty;
+        this.pathPlannerConfigEditor._config.hardDecelerationPenalty = settings.hardDecelerationPenalty;
+      }
+
+      // Apply speed profile
+      if (settings.speedProfile) {
+        this.speedProfile = settings.speedProfile;
+      }
+
+      // Apply autopilot aggression
+      if (settings.autopilotAggression) {
+        this.autopilotAggression = settings.autopilotAggression;
+      }
+
+      // Apply visualization mode
+      if (settings.visualization === '2d') {
+        this.switchTo2D();
+      } else if (settings.visualization === '3d') {
+        this.switchTo3D();
+      }
+    });
 
 
     this.paused = false;
@@ -211,6 +254,33 @@ export default class Simulator {
         this.alertService.show('Autopark Cancelled', 'error');
         this.carControllerMode = 'manual';
       });
+    }
+
+    // NEW Settings Button Logic (using new IDs to avoid conflicts)
+    const newSettingsBtn = document.getElementById('new-settings-button');
+    if (newSettingsBtn) {
+      newSettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (window.SettingsPanel) {
+          window.SettingsPanel.open();
+        } else {
+          import('./ui/SettingsPanel.js').then(() => {
+            if (window.SettingsPanel) window.SettingsPanel.open();
+          });
+        }
+      });
+      console.log('Simulator: Wired up NEW settings button');
+    }
+
+    // NEW Info Button Logic
+    const newInfoBtn = document.getElementById('new-info-button');
+    if (newInfoBtn) {
+      newInfoBtn.addEventListener('click', () => {
+        this.welcomeModal.classList.add('is-active');
+      });
+      console.log('Simulator: Wired up NEW info button');
     }
 
     // Keyboard shortcuts for speed profiles and lane changes
@@ -1125,6 +1195,19 @@ export default class Simulator {
       }
 
       this.dashboard.update(controls, carVelocity, this.carStation, latitude, this.simulatedTime, this.averagePlanTime.average, this.editor.speedLimit);
+
+      // Update new UI mode
+      if (this.newUIMode && this.newUIMode.enabled) {
+        this.newUIMode.update({
+          speed: carVelocity,
+          speedLimit: this.editor.speedLimit || 25,
+          fsdActive: this.carControllerMode === 'autonomous' || this.carControllerMode === 'autopark',
+          distance: this.carStation || 0,
+          avgSpeed: carVelocity, // Could track average over time
+          planTime: this.averagePlanTime.average || 0,
+          gear: this.carControllerMode === 'manual' ? (this.manualCarController.getGear ? this.manualCarController.getGear() : 'D') : 'D'
+        });
+      }
     }
 
     if (!this.editor.enabled && this.plannerReady) {

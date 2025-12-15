@@ -21,5 +21,168 @@ export default [
 
   { name: "Highway with Intersection", data: { "p": [-500, 0, 500, 0], "s": [], "ss": [], "tl": [{ "p": [-10, -5], "r": 0 }], "ps": [], "d": [{ "p": ["500", "-8"], "v": ["0", "5"], "l": 0, "t": 0 }, { "p": ["505", "8"], "v": ["0", "-5"], "l": 0, "t": 0 }], "l": 1000, "w": 10, "c": { "s": "25", "sl": "30", "lp": 1 }, "v": 1 } },
 
-  { name: "Reverse FSD Test", data: { "p": [0, 0, 20, 0, 40, 5, 60, 5, 80, 0], "s": [{ "p": [25, 0], "r": 0, "w": 3, "h": 4 }, { "p": [45, 3], "r": 0.5, "w": 2, "h": 3 }, { "p": [65, 5], "r": 0, "w": 4, "h": 3 }], "d": [], "l": 100, "c": { "s": "5", "sl": "10", "lp": 0 }, "v": 1 } }
+  { name: "Reverse FSD Test", data: { "p": [0, 0, 20, 0, 40, 5, 60, 5, 80, 0], "s": [{ "p": [25, 0], "r": 0, "w": 3, "h": 4 }, { "p": [45, 3], "r": 0.5, "w": 2, "h": 3 }, { "p": [65, 5], "r": 0, "w": 4, "h": 3 }], "d": [], "l": 100, "c": { "s": "5", "sl": "10", "lp": 0 }, "v": 1 } },
+
+  // ===== FSD Failure Test Scenarios =====
+  // Real-world Tesla FSD v13/v14 documented failures with sources
+
+  {
+    name: "Oncoming Traffic Turn",
+    fsdFailure: true,
+    severity: "critical",
+    fsdVersion: "v13.2.8",
+    source: "Reddit March 2025",
+    data: {
+      "p": [-200, 0, 0, 0, 50, 50, 100, 100],
+      "s": [],
+      "d": [
+        { "p": ["80", "50"], "v": ["-15", "0"], "l": 1, "t": 0 },
+        { "p": ["100", "50"], "v": ["-15", "0"], "l": 1, "t": 0 }
+      ],
+      "tl": [{ "p": [0, -5], "r": 0, "s": "green" }],
+      "l": 300,
+      "w": 7.4,
+      "c": { "s": "13.4", "sl": "13.4", "lp": 1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Wrong Lane Turn",
+    fsdFailure: true,
+    severity: "high",
+    fsdVersion: "v13.2.9",
+    source: "Forbes June 2025",
+    data: {
+      "p": [-200, 0, 200, 0, 250, -50],
+      "s": [],
+      "d": [
+        { "p": ["150", "3.7"], "v": ["12", "0"], "l": 1, "t": 0 },
+        { "p": ["180", "0"], "v": ["12", "0"], "l": 1, "t": 0 }
+      ],
+      "tl": [{ "p": [200, -5], "r": 0, "s": "green" }],
+      "l": 450,
+      "w": 11.1,
+      "c": { "s": "13.4", "sl": "13.4", "lp": -1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Blocked Entry",
+    fsdFailure: true,
+    severity: "high",
+    fsdVersion: "v13.2.9",
+    source: "Forbes June 2025",
+    data: {
+      "p": [-200, 0, 200, 0],
+      "s": [
+        { "p": [80, -8], "r": 1.57, "w": 15, "h": 2 },
+        { "p": [70, -5], "r": 0, "w": 2, "h": 3 }
+      ],
+      "d": [],
+      "l": 400,
+      "w": 7.4,
+      "c": { "s": "10", "sl": "13.4", "lp": 1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Indecisive Merge",
+    fsdFailure: true,
+    severity: "medium",
+    fsdVersion: "v14",
+    source: "Reddit Oct 2025",
+    data: {
+      "p": [-400, 0, 400, 0],
+      "s": [],
+      "d": [
+        { "p": ["100", "0"], "v": ["28", "0"], "l": 1, "t": 0 },
+        { "p": ["150", "0"], "v": ["30", "0"], "l": 1, "t": 0 },
+        { "p": ["200", "0"], "v": ["27", "0"], "l": 1, "t": 0 }
+      ],
+      "l": 800,
+      "w": 14.6,
+      "c": { "s": "20", "sl": "29.1", "lp": -1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Mad Max Speeding",
+    fsdFailure: true,
+    severity: "medium",
+    fsdVersion: "v14",
+    source: "Electrek Oct 2025",
+    data: {
+      "p": [-300, 0, 300, 0],
+      "s": [
+        { "p": [100, -5], "r": 0, "w": 3, "h": 2 }
+      ],
+      "d": [],
+      "l": 600,
+      "w": 7.4,
+      "c": { "s": "0", "sl": "11.2", "lp": 1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Left Turn Oncoming",
+    fsdFailure: true,
+    severity: "critical",
+    fsdVersion: "v13.2.9",
+    source: "Medium Aug 2025",
+    data: {
+      "p": [-200, 0, 0, 0, 50, 50],
+      "s": [],
+      "d": [
+        { "p": ["60", "3.7"], "v": ["-18", "0"], "l": 1, "t": 0 },
+        { "p": ["75", "3.7"], "v": ["-18", "0"], "l": 1, "t": 0 }
+      ],
+      "tl": [{ "p": [0, -5], "r": 0, "s": "green" }],
+      "l": 250,
+      "w": 14.6,
+      "c": { "s": "5", "sl": "17.9", "lp": 1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Hallucination Stop",
+    fsdFailure: true,
+    severity: "medium",
+    fsdVersion: "v14.1.4",
+    source: "Electrek Oct 2025",
+    data: {
+      "p": [-300, 0, 300, 0],
+      "s": [],
+      "d": [],
+      "l": 600,
+      "w": 7.4,
+      "c": { "s": "17", "sl": "17.9", "lp": 1 },
+      "v": 1
+    }
+  },
+
+  {
+    name: "Brake Stabbing",
+    fsdFailure: true,
+    severity: "low",
+    fsdVersion: "v14.1.4",
+    source: "Electrek Oct 2025",
+    data: {
+      "p": [-500, 0, 500, 0],
+      "s": [],
+      "d": [
+        { "p": ["100", "0"], "v": ["27", "0"], "l": 1, "t": 0 },
+        { "p": ["150", "-3.7"], "v": ["28", "0"], "l": 1, "t": 0 }
+      ],
+      "l": 1000,
+      "w": 11.1,
+      "c": { "s": "28", "sl": "29.1", "lp": 1 },
+      "v": 1
+    }
+  }
 ];

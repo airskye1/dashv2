@@ -16,10 +16,10 @@ export default class ImprovedAutoparkController {
         this.carLength = 4.5;
         this.carWheelbase = 2.7;
 
-        // Speed limits for safety
-        this.CRAWL_SPEED = 0.8; // m/s - very slow forward
-        this.REVERSE_SPEED = -0.6; // m/s - even slower reverse
-        this.PAUSE_DURATION = 1.5; // seconds between maneuvers
+        // Speed limits for safety - VERY SLOW for realism
+        this.CRAWL_SPEED = 0.5; // m/s - ultra slow forward (~1.1 mph)
+        this.REVERSE_SPEED = -0.4; // m/s - ultra slow reverse (~0.9 mph)
+        this.PAUSE_DURATION = 2.0; // seconds between maneuvers - longer for realism
 
         // State machine
         this.phase = 'idle'; // idle, approaching, aligning, reversing, adjusting, centering, complete
@@ -35,6 +35,11 @@ export default class ImprovedAutoparkController {
         this.maxAttempts = 5;
         this.attemptCount = 0;
         this.lastControl = { steer: 0, gas: 0, brake: 0 };
+
+        // Smoothing factors - more aggressive for ultra-smooth control
+        this.steerSmoothing = 0.08; // Very gradual steering
+        this.gasSmoothing = 0.05; // Very gradual acceleration
+        this.brakeSmoothing = 0.1; // Moderate braking
     }
 
     /**
@@ -267,10 +272,10 @@ export default class ImprovedAutoparkController {
             }
         }
 
-        // Apply smoothing
-        control.steer = this.smooth(this.lastControl.steer, control.steer, 0.15);
-        control.gas = this.smooth(this.lastControl.gas, control.gas, 0.1);
-        control.brake = this.smooth(this.lastControl.brake, control.brake, 0.1);
+        // Apply smoothing with configurable factors
+        control.steer = this.smooth(this.lastControl.steer, control.steer, this.steerSmoothing);
+        control.gas = this.smooth(this.lastControl.gas, control.gas, this.gasSmoothing);
+        control.brake = this.smooth(this.lastControl.brake, control.brake, this.brakeSmoothing);
 
         this.lastControl = control;
         return control;
@@ -328,9 +333,9 @@ export default class ImprovedAutoparkController {
             control.brake = Math.abs(velocity) > 0.1 ? 1.0 : 0.5;
         }
 
-        // Reduce speed when close to waypoint
-        if (distance < 2.0 && waypoint.direction !== 'stop') {
-            const slowdownFactor = distance / 2.0;
+        // Reduce speed when close to waypoint - start slowing down earlier
+        if (distance < 3.0 && waypoint.direction !== 'stop') {
+            const slowdownFactor = Math.max(0.3, distance / 3.0); // Never go below 30% speed
             control.gas *= slowdownFactor;
         }
 
@@ -347,9 +352,9 @@ export default class ImprovedAutoparkController {
 
         const headingError = Math.abs(this.normalizeAngle(waypoint.rot - pose.rot));
 
-        // Tolerances
-        const positionTolerance = 0.3; // meters
-        const headingTolerance = 0.15; // radians (~8.5 degrees)
+        // Tolerances - tighter for better accuracy
+        const positionTolerance = 0.25; // meters - tighter
+        const headingTolerance = 0.12; // radians (~7 degrees) - tighter
 
         return distance < positionTolerance && headingError < headingTolerance;
     }

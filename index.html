@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="vendor/bulma.min.css" />
     <link rel="stylesheet" href="css/dash.css" />
     <link rel="stylesheet" href="css/modern-ui.css" />
+    <link rel="stylesheet" href="css/settings-panel.css" />
     <meta charset="utf-8" />
 </head>
 
@@ -96,55 +97,42 @@
                 </div>
             </div>
         </div>
-        <div id="config-box" class="gui-box sim-mode-box">
-            <div id="show-config-box">
-                <div id="show-welcome-modal" class="button is-small is-dark is-outlined is-inverted" title="About Dash">
-                    <span class="icon is-medium">
+        <!-- OLD CONFIG BOX - HIDDEN -->
+        <div id="config-box" class="gui-box sim-mode-box" style="display: none !important;">
+            <div id="show-config-box" style="display: flex; gap: 12px;">
+                <button id="show-welcome-modal" class="button btn-modern"
+                    style="border-radius: 50% !important; width: 42px; height: 42px; padding: 0; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa;"
+                    title="About Dash">
+                    <span class="icon">
                         <i class="fas fa-lg fa-info"></i>
                     </span>
-                </div>
-                &nbsp;
-                <div id="show-config-button" class="button is-small is-dark is-outlined is-inverted"
-                    title="Planner Config">
-                    <span class="icon is-medium">
+                </button>
+                <button id="show-config-button" class="button btn-modern"
+                    style="border-radius: 50% !important; width: 42px; height: 42px; padding: 0; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;"
+                    title="Settings">
+                    <span class="icon">
                         <i class="fas fa-lg fa-cog"></i>
                     </span>
-                </div>
+                </button>
             </div>
-            <div id="config-box-content" class="is-hidden">
-                <div class="is-clearfix">
-                    <div class="field is-grouped is-pulled-right">
-                        <div class="control">
-                            <div id="restore-defaults-config-button" class="button is-small is-danger"
-                                title="Restore Defaults">
-                                <span class="icon is-medium">
-                                    <i class="fas fa-lg fa-undo-alt"></i>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="control">
-                            <div id="save-config-button" class="button is-small is-success" title="Save Config">
-                                <span class="icon is-medium">
-                                    <i class="fas fa-lg fa-save"></i>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="control">
-                            <div id="hide-config-button" class="button is-small is-dark is-outlined is-inverted"
-                                title="Close">
-                                <span class="icon is-medium">
-                                    <i class="fas fa-lg fa-times"></i>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="title is-5 has-text-grey-lighter"
-                        style="padding-top: 2px; padding-right: 8px; background: transparent; border: none;">Planner
-                        Config</div>
-                </div>
-                <div style="margin-top: 16px; max-height: 400px; overflow-y: scroll;">
-                    <form id="config-form"></form>
-                </div>
+        </div>
+        <!-- NEW BUTTONS - CLEAN -->
+        <div id="new-controls-box" class="gui-box sim-mode-box">
+            <div style="display: flex; gap: 12px;">
+                <button id="new-info-button" class="button btn-modern"
+                    style="border-radius: 50% !important; width: 42px; height: 42px; padding: 0; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa;"
+                    title="About Dash">
+                    <span class="icon">
+                        <i class="fas fa-lg fa-info"></i>
+                    </span>
+                </button>
+                <button id="new-settings-button" class="button btn-modern"
+                    style="border-radius: 50% !important; width: 42px; height: 42px; padding: 0; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;"
+                    title="Settings">
+                    <span class="icon">
+                        <i class="fas fa-lg fa-cog"></i>
+                    </span>
+                </button>
             </div>
         </div>
         <div id="editor-enabler" class="gui-box sim-mode-box">
@@ -838,6 +826,13 @@
     <script src="vendor/THREE.MeshLine.js"></script>
     <script src="js/Utils.js"></script>
     <script src="dist/PathPlannerWorker.js"></script>
+
+    <!-- New UI Components -->
+    <script src="js/ui/ToastNotification.js"></script>
+    <script type="module" src="js/ui/SpeedUnitConverter.js"></script>
+    <script type="module" src="js/ui/NewUIMode.js"></script>
+    <script type="module" src="js/ui/SettingsPanel.js"></script>
+
     <script src="dist/Dash.js"></script>
 </body>
 
