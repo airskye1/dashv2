@@ -62,7 +62,7 @@ function dash_initPathPlannerWorker() {/******/ (function(modules) { // webpackB
 /******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
 /******/
 /******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
+/******/ 	__webpack_require__.p = "/dist/";
 /******/
 /******/
 /******/ 	// Load entry module and return exports

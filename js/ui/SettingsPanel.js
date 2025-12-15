@@ -363,7 +363,7 @@ export default class SettingsPanel {
         }
 
         // Apply other settings
-        if (window.simulator) {
+        if (window.simulator && typeof window.simulator.applySettings === 'function') {
             window.simulator.applySettings(this.settings);
         }
 

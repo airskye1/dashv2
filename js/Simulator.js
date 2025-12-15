@@ -749,6 +749,47 @@ export default class Simulator {
     window.localStorage.setItem(WELCOME_MODAL_KEY, 'hide');
   }
 
+  applySettings(settings) {
+    // Apply path planner settings
+    if (this.pathPlannerConfigEditor && settings) {
+      if (settings.spatialHorizon !== undefined) {
+        this.pathPlannerConfigEditor._config.spatialHorizon = settings.spatialHorizon;
+      }
+      if (settings.collisionDilationS !== undefined) {
+        this.pathPlannerConfigEditor._config.collisionDilationS = settings.collisionDilationS;
+      }
+      if (settings.hazardDilationS !== undefined) {
+        this.pathPlannerConfigEditor._config.hazardDilationS = settings.hazardDilationS;
+      }
+      if (settings.laneCenterLatitude !== undefined) {
+        this.pathPlannerConfigEditor._config.laneCenterLatitude = settings.laneCenterLatitude;
+      }
+      if (settings.hardAccelerationPenalty !== undefined) {
+        this.pathPlannerConfigEditor._config.hardAccelerationPenalty = settings.hardAccelerationPenalty;
+      }
+      if (settings.hardDecelerationPenalty !== undefined) {
+        this.pathPlannerConfigEditor._config.hardDecelerationPenalty = settings.hardDecelerationPenalty;
+      }
+    }
+
+    // Apply speed profile
+    if (settings.speedProfile) {
+      this.speedProfile = settings.speedProfile;
+    }
+
+    // Apply autopilot aggression
+    if (settings.autopilotAggression) {
+      this.autopilotAggression = settings.autopilotAggression;
+    }
+
+    // Apply visualization mode
+    if (settings.visualization === '2d') {
+      this.switchTo2D();
+    } else if (settings.visualization === '3d') {
+      this.switchTo3D();
+    }
+  }
+
   startPlanner(pose, station) {
     this.plannerReady = false;
     this.lastPlanTime = performance.now();
