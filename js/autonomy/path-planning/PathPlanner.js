@@ -73,7 +73,11 @@ export default class PathPlanner {
     const numCenterlinePoints = Math.ceil((this.config.spatialHorizon + latticeStationInterval) / this.config.centerlineStationInterval) + 1;
     let centerlineRaw;
 
-    // ... (rest of function setup) ...
+    // Safety check for lanePath
+    if (!lanePath || typeof lanePath.sampleStations !== 'function') {
+      console.warn('PathPlanner: Invalid lanePath provided');
+      return { path: null, fromVehicleSegment: null, fromVehicleParams: null, latticeStartStation: null, dynamicObstacleGrid: null };
+    }
 
     // --- SPEED PROFILE LOGIC ---
     let profileMultiplier = 1.0;
@@ -100,37 +104,49 @@ export default class PathPlanner {
 
     // Helper to check objects
     const checkStopObjects = (objects, isTrafficLight = false, isParkingSpot = false) => {
-      if (objects && objects.length > 0) {
-        for (const obj of objects) {
-          // For traffic lights, only stop if Red or Yellow
-          if (isTrafficLight && obj.state === 'green') continue;
+      if (!objects || !Array.isArray(objects) || objects.length === 0) return;
 
-          // Get station of object
-          let pos;
-          if (obj.pos) {
-            pos = new THREE.Vector2(obj.pos.x, obj.pos.y);
-          } else if (obj.p) {
-            pos = new THREE.Vector2(obj.p[0], obj.p[1]);
-          } else {
-            continue;
-          }
+      for (const obj of objects) {
+        if (!obj) continue;
 
+        // For traffic lights, only stop if Red or Yellow (case-insensitive)
+        if (isTrafficLight) {
+          const state = (obj.state || '').toLowerCase();
+          if (state === 'green') continue;
+        }
+
+        // Get station of object
+        let pos;
+        if (obj.pos && typeof obj.pos.x === 'number') {
+          pos = new THREE.Vector2(obj.pos.x, obj.pos.y);
+        } else if (obj.p && Array.isArray(obj.p)) {
+          pos = new THREE.Vector2(obj.p[0], obj.p[1]);
+        } else {
+          continue;
+        }
+
+        try {
           const [s, l] = lanePath.stationLatitudeFromPosition(pos);
 
-          if (s !== null) {
+          if (s !== null && !isNaN(s)) {
             const dist = direction === 1 ? s - vehicleStation : vehicleStation - s;
 
             // For parking spots, allow checking behind (negative dist) for reversing maneuvers
-            const minCheckDist = isParkingSpot ? -10 : 0;
+            const minCheckDist = isParkingSpot ? -15 : 0;
             const horizon = isParkingSpot ? this.config.spatialHorizon * 1.5 : this.config.spatialHorizon;
 
             if (dist > minCheckDist && dist < horizon && Math.abs(dist) < Math.abs(minStopDist)) {
               minStopDist = dist;
               nearestStopObj = obj;
-              nearestStopObj.isParkingSpot = isParkingSpot;
-              nearestStopObj.isTrafficLight = isTrafficLight;
+              nearestStopObj._isParkingSpot = isParkingSpot;
+              nearestStopObj._isTrafficLight = isTrafficLight;
+              nearestStopObj._station = s;
+              nearestStopObj._latitude = l;
             }
           }
+        } catch (e) {
+          // Skip objects that cause errors
+          continue;
         }
       }
     };
@@ -144,21 +160,18 @@ export default class PathPlanner {
       let ignoreStop = false;
 
       // Stop Sign Logic: Wait and Proceed
-      if (!nearestStopObj.isParkingSpot && !nearestStopObj.isTrafficLight) {
-        if (this.stopSignState.id !== nearestStopObj.id) {
-          this.stopSignState = { id: nearestStopObj.id, stopStartTime: null, cleared: false };
+      if (!nearestStopObj._isParkingSpot && !nearestStopObj._isTrafficLight) {
+        // Generate unique ID for stop sign if not present
+        const stopId = nearestStopObj.id || `stop_${nearestStopObj._station}`;
+
+        if (this.stopSignState.id !== stopId) {
+          this.stopSignState = { id: stopId, stopStartTime: null, cleared: false };
         }
 
         if (this.stopSignState.cleared) {
           ignoreStop = true;
         } else {
-          // Check if we are stopped at the line
-          let pos;
-          if (nearestStopObj.pos) pos = new THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
-          else pos = new THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
-
-          const [s, l] = lanePath.stationLatitudeFromPosition(pos);
-          const stopLineStation = s;
+          const stopLineStation = nearestStopObj._station;
           const distToStop = direction === 1 ? stopLineStation - vehicleStation : vehicleStation - stopLineStation;
 
           // If we are close (< 3m + buffer) and stopped (velocity < 0.1)
@@ -166,8 +179,8 @@ export default class PathPlanner {
             if (this.stopSignState.stopStartTime === null) {
               this.stopSignState.stopStartTime = startTime;
             } else {
-              // Check duration (2 seconds)
-              if (startTime - this.stopSignState.stopStartTime > 2.0) {
+              // Check duration (0.5 seconds for responsiveness)
+              if (startTime - this.stopSignState.stopStartTime > 0.5) {
                 // Check traffic
                 if (this._isTrafficClear(lanePath, stopLineStation, dynamicObstacles, startTime)) {
                   this.stopSignState.cleared = true;
@@ -177,61 +190,55 @@ export default class PathPlanner {
             }
           }
         }
+      } else if (nearestStopObj._isTrafficLight) {
+        // Traffic lights don't need wait-and-clear, just obstacle until green
+        // Reset stop sign state
+        this.stopSignState = { id: null, stopStartTime: null, cleared: false };
       } else {
-        // Reset state if not a stop sign
-        if (this.stopSignState.id) this.stopSignState = { id: null, stopStartTime: null, cleared: false };
+        // Parking spot - don't reset, handled separately
       }
 
       if (!ignoreStop) {
-        // Calculate position just past the stop line
-        let pos;
-        if (nearestStopObj.pos) {
-          pos = new THREE.Vector2(nearestStopObj.pos.x, nearestStopObj.pos.y);
-        } else {
-          pos = new THREE.Vector2(nearestStopObj.p[0], nearestStopObj.p[1]);
-        }
-        const [s, l] = lanePath.stationLatitudeFromPosition(pos);
-        const stopLineStation = s;
+        const stopLineStation = nearestStopObj._station;
+        let obstacleStation = null;
+        let obstacleWidth = 1.0;
+        let obstacleHeight = 4.0;
 
-        let obstacleStation;
-        let obstacleOffset = 0; // Lateral offset from centerline
-
-        if (nearestStopObj.isParkingSpot) {
-          // Parking Spot Logic - FSD v13 style: Assertive, no hesitation
+        if (nearestStopObj._isParkingSpot) {
+          // Parking Spot Logic
           if (direction === 1) {
-            // Forward approach: Just drive past, let Simulator trigger reverse
-            // No obstacle needed - Simulator handles the reverse trigger
-            obstacleStation = null; // Skip obstacle placement
+            // Forward approach: Create a soft stop point slightly past the spot
+            // This signals the planner to slow down as we approach
+            obstacleStation = stopLineStation + 3.0;
+            obstacleWidth = 0.5; // Thin barrier
+            obstacleHeight = 2.0; // Narrow to allow pass-through on sides
           } else {
-            // Reverse into spot: Guide the car INTO the spot (no blocking)
-            // The lateral offset will steer us in, no virtual wall needed
-            obstacleStation = null; // No obstacle - let it flow in
-
-            // The lane center latitude in config already guides the car
+            // Reverse into spot: Create a target stop point IN the spot
+            // Place obstacle at the back of the parking space (about 5m into spot)
+            obstacleStation = stopLineStation - 4.0; // Behind the spot entrance
+            obstacleWidth = 0.5;
+            obstacleHeight = 2.0;
           }
         } else {
           // Normal Stop Line (Stop Sign / Traffic Light)
-          // Place obstacle 3 meters after stop line
-          obstacleStation = stopLineStation + (direction * 3.0);
+          // Place obstacle 0.5 meters after stop line to ensure stop AT the line
+          obstacleStation = stopLineStation + (direction * 0.5);
         }
 
         // Get XY of this station (only if we have a valid station)
-        if (obstacleStation !== null) {
-          const sample = lanePath.sampleStations(obstacleStation, 1, 0.1)[0];
-          if (sample) {
-            // Add a virtual static obstacle
-            // Apply lateral offset
-            const normal = new THREE.Vector2(-Math.sin(sample.rot), Math.cos(sample.rot));
-            const pos = sample.pos.clone().add(normal.multiplyScalar(obstacleOffset));
+        if (obstacleStation !== null && !isNaN(obstacleStation)) {
+          try {
+            const sample = lanePath.sampleStations(obstacleStation, 1, 0.1)[0];
+            if (sample && sample.pos) {
+              // Add a virtual static obstacle
+              const normal = new THREE.Vector2(-Math.sin(sample.rot), Math.cos(sample.rot));
+              const lateralOffset = nearestStopObj._isParkingSpot ? nearestStopObj._latitude : 0;
+              const pos = sample.pos.clone().add(normal.multiplyScalar(lateralOffset));
 
-            const virtualObstacle = {
-              pos: pos,
-              rot: sample.rot,
-              width: 1.0, // Thin wall
-              height: 4.0 // Road width approx
-            };
-
-            staticObstacles = [...staticObstacles, new StaticObstacle(virtualObstacle.pos, virtualObstacle.rot, virtualObstacle.width, virtualObstacle.height)];
+              staticObstacles = [...staticObstacles, new StaticObstacle(pos, sample.rot, obstacleWidth, obstacleHeight)];
+            }
+          } catch (e) {
+            // Skip if sampling fails
           }
         }
       }

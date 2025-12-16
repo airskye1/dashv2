@@ -1,6 +1,6 @@
 /**
  * Modern Settings Panel
- * Redesigned with better organization and toggle switches
+ * Redesigned with premium aesthetics, animations, and improved UX.
  */
 
 export default class SettingsPanel {
@@ -50,224 +50,428 @@ export default class SettingsPanel {
     createModal() {
         const modal = document.createElement('div');
         modal.id = 'settings-modal';
-        modal.className = 'modal';
+        modal.className = 'custom-modal'; // Removed 'modal' to avoid Bulma conflicts if desired, but keeping simpler structure
+        modal.style.display = 'none';
         modal.innerHTML = this.getModalHTML();
         document.body.appendChild(modal);
         this.attachEventListeners();
-
-
-
         return modal;
     }
 
     getModalHTML() {
         return `
-            <div class="modal-background"></div>
-            <div class="modal-content" style="max-width: 700px;">
-                <div class="box glass-panel" style="padding: 32px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
-                        <h2 class="title is-4 has-text-white" style="margin: 0;">
-                            <i class="fas fa-cog"></i> Settings
-                        </h2>
-                        <button class="delete is-large" id="close-settings"></button>
+            <style>
+                #settings-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.3s ease;
+                }
+                
+                #settings-modal.is-active {
+                    opacity: 1;
+                    pointer-events: auto;
+                }
+
+                .settings-backdrop {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(8px);
+                }
+
+                .settings-panel {
+                    position: relative;
+                    width: 90%;
+                    max-width: 800px;
+                    max-height: 85vh;
+                    background: rgba(24, 24, 27, 0.95);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 24px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    transform: scale(0.95) translateY(20px);
+                    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+
+                #settings-modal.is-active .settings-panel {
+                    transform: scale(1) translateY(0);
+                }
+
+                .settings-header {
+                    padding: 24px 32px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: rgba(255, 255, 255, 0.02);
+                }
+
+                .settings-title {
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .settings-close {
+                    background: rgba(255, 255, 255, 0.1);
+                    border: none;
+                    color: rgba(255, 255, 255, 0.7);
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                }
+
+                .settings-close:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                    color: white;
+                    transform: rotate(90deg);
+                }
+
+                .settings-content {
+                    padding: 32px;
+                    overflow-y: auto;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 40px;
+                }
+                
+                @media (max-width: 768px) {
+                    .settings-content {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
+                .settings-section-title {
+                    font-size: 13px;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    font-weight: 600;
+                    color: #3b82f6;
+                    margin-bottom: 20px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .settings-section-title::after {
+                    content: '';
+                    flex: 1;
+                    height: 1px;
+                    background: rgba(59, 130, 246, 0.2);
+                }
+
+                .setting-item {
+                    margin-bottom: 24px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .setting-info {
+                    flex: 1;
+                    padding-right: 20px;
+                }
+
+                .setting-name {
+                    color: #e5e7eb;
+                    font-weight: 500;
+                    font-size: 15px;
+                    margin-bottom: 4px;
+                }
+
+                .setting-desc {
+                    color: #9ca3af;
+                    font-size: 13px;
+                    line-height: 1.4;
+                }
+
+                /* Modern Toggle Switch */
+                .ui-toggle {
+                    appearance: none;
+                    width: 48px;
+                    height: 28px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 99px;
+                    position: relative;
+                    cursor: pointer;
+                    transition: background 0.3s ease;
+                    outline: none;
+                }
+
+                .ui-toggle::after {
+                    content: '';
+                    position: absolute;
+                    top: 2px;
+                    left: 2px;
+                    width: 24px;
+                    height: 24px;
+                    background: white;
+                    border-radius: 50%;
+                    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+
+                .ui-toggle:checked {
+                    background: #3b82f6;
+                }
+
+                .ui-toggle:checked::after {
+                    transform: translateX(20px);
+                }
+                
+                /* Custom Select */
+                .ui-select {
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    padding: 8px 32px 8px 16px;
+                    border-radius: 8px;
+                    appearance: none;
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-size: 14px;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: right 8px center;
+                    background-size: 16px;
+                    min-width: 120px;
+                }
+                
+                .ui-select:focus {
+                    border-color: #3b82f6;
+                    outline: none;
+                }
+                
+                .ui-input {
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    width: 80px;
+                    text-align: center;
+                    font-family: inherit;
+                    font-size: 14px;
+                }
+                
+                .ui-input:focus {
+                    border-color: #3b82f6;
+                    outline: none;
+                }
+
+                .settings-footer {
+                    padding: 24px 32px;
+                    border-top: 1px solid rgba(255, 255, 255, 0.05);
+                    display: flex;
+                    justify-content: flex-end;
+                    background: rgba(255, 255, 255, 0.02);
+                }
+
+                .save-btn {
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    padding: 10px 24px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .save-btn:hover {
+                    background: #2563eb;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                }
+                
+                /* Scrollbar */
+                .settings-content::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .settings-content::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.02);
+                }
+                .settings-content::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 4px;
+                }
+                .settings-content::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+            </style>
+
+            <div class="settings-backdrop"></div>
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <div class="settings-title">
+                        <i class="fas fa-sliders-h"></i> Settings
                     </div>
+                    <button class="settings-close" id="close-settings">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
 
-                    <!-- Display Settings -->
-                    <div class="settings-section">
-                        <h3 class="subtitle is-6 has-text-white-ter" style="margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; opacity: 0.7;">
-                            Display
-                        </h3>
-                        
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">New UI Mode</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Tesla-style minimalist interface</div>
+                <div class="settings-content">
+                    <!-- Column 1 -->
+                    <div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Display & Interface</div>
+                            
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">New UI Mode</div>
+                                    <div class="setting-desc">Minimalist, Tesla-style interface</div>
+                                </div>
+                                <input type="checkbox" id="setting-new-ui" class="ui-toggle" ${this.settings.newUIMode ? 'checked' : ''}>
                             </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="setting-new-ui" ${this.settings.newUIMode ? 'checked' : ''}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Speed Units</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Display speed in MPH or KM/H</div>
-                            </div>
-                            <div class="select is-dark">
-                                <select id="setting-speed-unit">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Speed Units</div>
+                                </div>
+                                <select id="setting-speed-unit" class="ui-select">
                                     <option value="mph" ${this.settings.speedUnit === 'mph' ? 'selected' : ''}>MPH</option>
                                     <option value="kmh" ${this.settings.speedUnit === 'kmh' ? 'selected' : ''}>KM/H</option>
                                 </select>
                             </div>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Visualization</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">2D top-down or 3D perspective</div>
-                            </div>
-                            <div class="select is-dark">
-                                <select id="setting-visualization">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Visualization</div>
+                                </div>
+                                <select id="setting-visualization" class="ui-select">
                                     <option value="2d" ${this.settings.visualization === '2d' ? 'selected' : ''}>2D Top-Down</option>
                                     <option value="3d" ${this.settings.visualization === '3d' ? 'selected' : ''}>3D Perspective</option>
                                 </select>
                             </div>
+
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Path Preview</div>
+                                    <div class="setting-desc">Visualize planned trajectory</div>
+                                </div>
+                                <input type="checkbox" id="setting-path-preview" class="ui-toggle" ${this.settings.pathPreview ? 'checked' : ''}>
+                            </div>
                         </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Path Preview</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Show planned path visualization</div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="setting-path-preview" ${this.settings.pathPreview ? 'checked' : ''}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Driving Behavior</div>
 
-                    <!-- Driving Settings -->
-                    <div class="settings-section">
-                        <h3 class="subtitle is-6 has-text-white-ter" style="margin-bottom: 16px; margin-top: 32px; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; opacity: 0.7;">
-                            Driving
-                        </h3>
-
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Speed Profile</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Driving style and speed preference</div>
-                            </div>
-                            <div class="select is-dark">
-                                <select id="setting-speed-profile">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Speed Profile</div>
+                                </div>
+                                <select id="setting-speed-profile" class="ui-select">
                                     <option value="chill" ${this.settings.speedProfile === 'chill' ? 'selected' : ''}>Chill</option>
                                     <option value="standard" ${this.settings.speedProfile === 'standard' ? 'selected' : ''}>Standard</option>
                                     <option value="sport" ${this.settings.speedProfile === 'sport' ? 'selected' : ''}>Sport</option>
                                 </select>
                             </div>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Camera Mode</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Camera follow behavior</div>
-                            </div>
-                            <div class="select is-dark">
-                                <select id="setting-camera-mode">
-                                    <option value="follow" ${this.settings.cameraMode === 'follow' ? 'selected' : ''}>Follow Car</option>
-                                    <option value="fixed" ${this.settings.cameraMode === 'fixed' ? 'selected' : ''}>Fixed Position</option>
-                                    <option value="orbit" ${this.settings.cameraMode === 'orbit' ? 'selected' : ''}>Orbit</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Autopilot Settings -->
-                    <div class="settings-section">
-                        <h3 class="subtitle is-6 has-text-white-ter" style="margin-bottom: 16px; margin-top: 32px; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; opacity: 0.7;">
-                            Autopilot
-                        </h3>
-
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Autopilot Aggression</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">How assertive the autopilot drives</div>
-                            </div>
-                            <div class="select is-dark">
-                                <select id="setting-autopilot-aggression">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Autopilot Aggression</div>
+                                </div>
+                                <select id="setting-autopilot-aggression" class="ui-select">
                                     <option value="conservative" ${this.settings.autopilotAggression === 'conservative' ? 'selected' : ''}>Conservative</option>
                                     <option value="standard" ${this.settings.autopilotAggression === 'standard' ? 'selected' : ''}>Standard</option>
                                     <option value="aggressive" ${this.settings.autopilotAggression === 'aggressive' ? 'selected' : ''}>Aggressive</option>
                                 </select>
                             </div>
                         </div>
-
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Audio Alerts</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Sound notifications for events</div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="setting-audio-alerts" ${this.settings.audioAlerts ? 'checked' : ''}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
                     </div>
 
-                    <!-- Path Planner Settings -->
-                    <div class="settings-section">
-                        <h3 class="subtitle is-6 has-text-white-ter" style="margin-bottom: 16px; margin-top: 32px; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; opacity: 0.7;">
-                            Path Planner (Advanced)
-                        </h3>
+                    <!-- Column 2 -->
+                    <div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">System & Camera</div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Spatial Horizon</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Planning distance ahead (meters)</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Camera Mode</div>
+                                </div>
+                                <select id="setting-camera-mode" class="ui-select">
+                                    <option value="follow" ${this.settings.cameraMode === 'follow' ? 'selected' : ''}>Follow Car</option>
+                                    <option value="fixed" ${this.settings.cameraMode === 'fixed' ? 'selected' : ''}>Fixed</option>
+                                    <option value="orbit" ${this.settings.cameraMode === 'orbit' ? 'selected' : ''}>Orbit</option>
+                                </select>
                             </div>
-                            <div class="control">
-                                <input type="number" id="setting-spatial-horizon" class="input is-dark is-small" style="width: 80px;" value="${this.settings.spatialHorizon}" min="60" max="200" step="10">
+
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Audio Alerts</div>
+                                </div>
+                                <input type="checkbox" id="setting-audio-alerts" class="ui-toggle" ${this.settings.audioAlerts ? 'checked' : ''}>
                             </div>
                         </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Collision Safety</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Forward safety margin (meters)</div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Path Planner (Advanced)</div>
+                            
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Spatial Horizon</div>
+                                    <div class="setting-desc">Meters</div>
+                                </div>
+                                <input type="number" id="setting-spatial-horizon" class="ui-input" value="${this.settings.spatialHorizon}" min="60" max="200" step="10">
                             </div>
-                            <div class="control">
-                                <input type="number" id="setting-collision-dilation" class="input is-dark is-small" style="width: 80px;" value="${this.settings.collisionDilationS}" min="2" max="10" step="0.25">
-                            </div>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Hazard Distance</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Hazard detection range (meters)</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Collision Safety</div>
+                                    <div class="setting-desc">Meters</div>
+                                </div>
+                                <input type="number" id="setting-collision-dilation" class="ui-input" value="${this.settings.collisionDilationS}" min="2" max="10" step="0.25">
                             </div>
-                            <div class="control">
-                                <input type="number" id="setting-hazard-dilation" class="input is-dark is-small" style="width: 80px;" value="${this.settings.hazardDilationS}" min="4" max="16" step="1">
-                            </div>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Lane Center Preference</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Preferred lateral position (meters)</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Hazard Distance</div>
+                                    <div class="setting-desc">Meters</div>
+                                </div>
+                                <input type="number" id="setting-hazard-dilation" class="ui-input" value="${this.settings.hazardDilationS}" min="4" max="16" step="1">
                             </div>
-                            <div class="control">
-                                <input type="number" id="setting-lane-center" class="input is-dark is-small" style="width: 80px;" value="${this.settings.laneCenterLatitude}" min="0" max="3.7" step="0.1">
-                            </div>
-                        </div>
 
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Acceleration Penalty</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Hard acceleration cost</div>
-                            </div>
-                            <div class="control">
-                                <input type="number" id="setting-accel-penalty" class="input is-dark is-small" style="width: 80px;" value="${this.settings.hardAccelerationPenalty}" min="0" max="200" step="10">
-                            </div>
-                        </div>
-
-                        <div class="setting-item">
-                            <div class="setting-label">
-                                <div class="has-text-white" style="font-weight: 600;">Deceleration Penalty</div>
-                                <div class="has-text-grey-light" style="font-size: 13px;">Hard braking cost</div>
-                            </div>
-                            <div class="control">
-                                <input type="number" id="setting-decel-penalty" class="input is-dark is-small" style="width: 80px;" value="${this.settings.hardDecelerationPenalty}" min="0" max="200" step="10">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-name">Lane Preference</div>
+                                    <div class="setting-desc">Meters (Lateral)</div>
+                                </div>
+                                <input type="number" id="setting-lane-center" class="ui-input" value="${this.settings.laneCenterLatitude}" min="0" max="3.7" step="0.1">
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Save Button -->
-                    <div style="margin-top: 32px; text-align: right;">
-                        <button class="button is-primary is-medium btn-modern" id="save-settings">
-                            <span class="icon"><i class="fas fa-check"></i></span>
-                            <span>Save Settings</span>
-                        </button>
-                    </div>
+                <div class="settings-footer">
+                    <button class="save-btn" id="save-settings">
+                        <i class="fas fa-check"></i> Apply Changes
+                    </button>
                 </div>
             </div>
         `;
@@ -294,7 +498,7 @@ export default class SettingsPanel {
         // Background click to close
         const modal = document.getElementById('settings-modal');
         if (modal) {
-            const bg = modal.querySelector('.modal-background');
+            const bg = modal.querySelector('.settings-backdrop');
             if (bg) {
                 bg.addEventListener('click', () => this.close());
             }
@@ -374,6 +578,9 @@ export default class SettingsPanel {
     open() {
         const modal = document.getElementById('settings-modal');
         if (modal) {
+            modal.style.display = 'flex'; // Ensure flex display
+            // Force reflow
+            void modal.offsetWidth;
             modal.classList.add('is-active');
         }
     }
@@ -382,6 +589,11 @@ export default class SettingsPanel {
         const modal = document.getElementById('settings-modal');
         if (modal) {
             modal.classList.remove('is-active');
+            setTimeout(() => {
+                if (!modal.classList.contains('is-active')) {
+                    modal.style.display = 'none';
+                }
+            }, 300); // Wait for transition
         }
     }
 

@@ -39,20 +39,21 @@ export default class NewUIMode {
                 top: 40px;
                 left: 40px;
                 pointer-events: auto;
+                text-shadow: 0 2px 10px rgba(0,0,0,0.3);
             ">
                 <div style="
-                    font-size: 72px;
+                    font-size: 80px;
                     font-weight: 300;
                     color: white;
                     line-height: 1;
-                    letter-spacing: -2px;
+                    letter-spacing: -3px;
                 ">
                     <span id="new-ui-speed-value">0</span>
                 </div>
                 <div style="
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: 500;
-                    color: rgba(255, 255, 255, 0.6);
+                    color: rgba(255, 255, 255, 0.8);
                     margin-top: 4px;
                     letter-spacing: 1px;
                 ">
@@ -60,135 +61,124 @@ export default class NewUIMode {
                 </div>
             </div>
 
-            <!-- Top Right: Time & Controls Menu -->
+            <!-- Top Right: Minimal Controls -->
             <div id="new-ui-top-right" style="
                 position: absolute;
-                top: 40px;
-                right: 40px;
-                text-align: right;
+                top: 30px;
+                right: 30px;
+                display: flex;
+                gap: 16px;
+                align-items: center;
                 pointer-events: auto;
             ">
+                <!-- Status Group -->
                 <div style="
-                    font-size: 24px;
-                    font-weight: 500;
-                    color: white;
-                    margin-bottom: 16px;
+                    display: flex; 
+                    gap: 8px; 
+                    background: rgba(0,0,0,0.5); 
+                    padding: 8px; 
+                    border-radius: 99px;
+                    backdrop-filter: blur(10px);
                 ">
-                    <span id="new-ui-time">12:00</span>
+                    <div id="new-ui-autopilot-btn" class="ui-btn" title="Toggle Autopilot" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
+                        cursor: pointer;
+                        color: white;
+                        transition: all 0.2s;
+                    ">
+                        <i class="fas fa-magic"></i>
+                    </div>
                 </div>
-                
-                <!-- Control Menu -->
-                <div id="new-ui-control-menu" style="
-                    background: rgba(20, 20, 20, 0.85);
-                    backdrop-filter: blur(20px);
-                    border-radius: 16px;
-                    padding: 16px;
-                    min-width: 200px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+
+                <!-- Tools Group -->
+                <div style="
+                    display: flex; 
+                    gap: 8px; 
+                    background: rgba(0,0,0,0.5); 
+                    padding: 8px; 
+                    border-radius: 99px;
+                    backdrop-filter: blur(10px);
                 ">
-                    <!-- Autopilot Toggle -->
-                    <div id="new-ui-autopilot-btn" style="
-                        padding: 12px 16px;
-                        background: rgba(59, 130, 246, 0.2);
-                        border: 2px solid rgba(59, 130, 246, 0.5);
-                        border-radius: 12px;
+                    <div id="new-ui-scenario-btn" class="ui-btn" title="Load Scenario" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
                         cursor: pointer;
-                        margin-bottom: 12px;
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
+                        color: white;
+                        transition: all 0.2s;
                     ">
-                        <i class="fas fa-car" style="color: #3b82f6; font-size: 16px;"></i>
-                        <span style="color: white; font-weight: 500; font-size: 14px;">Autopilot</span>
-                        <div id="new-ui-autopilot-indicator" style="
-                            margin-left: auto;
-                            width: 8px;
-                            height: 8px;
-                            border-radius: 50%;
-                            background: rgba(255, 255, 255, 0.3);
-                            transition: all 0.3s ease;
-                        "></div>
+                        <i class="fas fa-folder-open"></i>
                     </div>
-
-                    <!-- Scenario Button -->
-                    <div id="new-ui-scenario-btn" style="
-                        padding: 12px 16px;
-                        background: rgba(255, 255, 255, 0.05);
-                        border-radius: 10px;
+                    <div id="new-ui-edit-btn" class="ui-btn" title="Edit Map" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
                         cursor: pointer;
-                        margin-bottom: 8px;
-                        transition: all 0.2s ease;
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
+                        color: white;
+                        transition: all 0.2s;
                     ">
-                        <i class="fas fa-folder-open" style="color: rgba(255, 255, 255, 0.7); font-size: 14px;"></i>
-                        <span style="color: rgba(255, 255, 255, 0.9); font-size: 13px;">Load Scenario</span>
+                        <i class="fas fa-pen"></i>
                     </div>
-
-                    <!-- Edit Button -->
-                    <div id="new-ui-edit-btn" style="
-                        padding: 12px 16px;
-                        background: rgba(255, 255, 255, 0.05);
-                        border-radius: 10px;
+                    <div id="new-ui-settings-btn" class="ui-btn" title="Settings" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
                         cursor: pointer;
-                        margin-bottom: 8px;
-                        transition: all 0.2s ease;
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
+                        color: white;
+                        transition: all 0.2s;
                     ">
-                        <i class="fas fa-edit" style="color: rgba(255, 255, 255, 0.7); font-size: 14px;"></i>
-                        <span style="color: rgba(255, 255, 255, 0.9); font-size: 13px;">Edit Map</span>
+                        <i class="fas fa-cog"></i>
                     </div>
+                </div>
 
-                    <!-- Playback Controls -->
-                    <div style="
-                        display: flex;
-                        gap: 8px;
-                        margin-top: 12px;
-                        padding-top: 12px;
-                        border-top: 1px solid rgba(255, 255, 255, 0.1);
+                <!-- Playback Group -->
+                <div style="
+                    display: flex; 
+                    gap: 8px; 
+                    background: rgba(0,0,0,0.5); 
+                    padding: 8px; 
+                    border-radius: 99px;
+                    backdrop-filter: blur(10px);
+                ">
+                    <div id="new-ui-play-btn" class="ui-btn" title="Play" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
+                        cursor: pointer;
+                        color: #10b981;
+                        transition: all 0.2s;
                     ">
-                        <div id="new-ui-play-btn" style="
-                            flex: 1;
-                            padding: 10px;
-                            background: rgba(16, 185, 129, 0.2);
-                            border: 1px solid rgba(16, 185, 129, 0.3);
-                            border-radius: 8px;
-                            cursor: pointer;
-                            text-align: center;
-                            transition: all 0.2s ease;
-                        ">
-                            <i class="fas fa-play" style="color: #10b981; font-size: 12px;"></i>
-                        </div>
-                        <div id="new-ui-pause-btn" style="
-                            flex: 1;
-                            padding: 10px;
-                            background: rgba(251, 191, 36, 0.2);
-                            border: 1px solid rgba(251, 191, 36, 0.3);
-                            border-radius: 8px;
-                            cursor: pointer;
-                            text-align: center;
-                            transition: all 0.2s ease;
-                            display: none;
-                        ">
-                            <i class="fas fa-pause" style="color: #fbbf24; font-size: 12px;"></i>
-                        </div>
-                        <div id="new-ui-restart-btn" style="
-                            flex: 1;
-                            padding: 10px;
-                            background: rgba(239, 68, 68, 0.2);
-                            border: 1px solid rgba(239, 68, 68, 0.3);
-                            border-radius: 8px;
-                            cursor: pointer;
-                            text-align: center;
-                            transition: all 0.2s ease;
-                        ">
-                            <i class="fas fa-redo" style="color: #ef4444; font-size: 12px;"></i>
-                        </div>
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div id="new-ui-pause-btn" class="ui-btn" title="Pause" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
+                        cursor: pointer;
+                        color: #fbbf24;
+                        transition: all 0.2s;
+                        display: none;
+                    ">
+                        <i class="fas fa-pause"></i>
+                    </div>
+                    <div id="new-ui-restart-btn" class="ui-btn" title="Restart" style="
+                        width: 40px; height: 40px;
+                        border-radius: 50%;
+                        background: rgba(255,255,255,0.1);
+                        display: flex; align-items: center; justify-content: center;
+                        cursor: pointer;
+                        color: #ef4444;
+                        transition: all 0.2s;
+                    ">
+                        <i class="fas fa-redo"></i>
                     </div>
                 </div>
             </div>
@@ -212,79 +202,33 @@ export default class NewUIMode {
                 </div>
             </div>
 
-            <!-- Bottom: Info Bar -->
+            <!-- Bottom: Simple Stats -->
             <div id="new-ui-bottom-bar" style="
                 position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                height: 80px;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                padding: 0 40px;
-                pointer-events: auto;
+                gap: 24px;
+                pointer-events: none;
+                text-shadow: 0 1px 4px rgba(0,0,0,0.5);
             ">
-                <!-- Left: Speed Limit -->
-                <div id="new-ui-speed-limit" style="
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                ">
-                    <div style="
-                        width: 48px;
-                        height: 48px;
-                        border-radius: 50%;
-                        background: white;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border: 3px solid #ef4444;
-                    ">
-                        <div style="
-                            font-size: 20px;
-                            font-weight: 700;
-                            color: #1f2937;
-                        ">
-                            <span id="new-ui-limit-value">25</span>
-                        </div>
-                    </div>
-                    <div style="
-                        font-size: 14px;
-                        color: rgba(255, 255, 255, 0.7);
-                    ">
-                        Speed Limit
-                    </div>
+                <div style="color: rgba(255,255,255,0.6); font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-ruler-horizontal" style="margin-right: 6px;"></i>
+                    <span id="new-ui-distance" style="color: white;">0.0</span> mi
                 </div>
-
-                <!-- Center: Stats -->
+                <div style="color: rgba(255,255,255,0.6); font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-tachometer-alt" style="margin-right: 6px;"></i>
+                    <span id="new-ui-limit-value" style="color: white;">25</span> limit
+                </div>
                 <div style="
-                    display: flex;
-                    gap: 32px;
-                    font-size: 13px;
-                    color: rgba(255, 255, 255, 0.6);
-                ">
-                    <div>
-                        <div style="color: rgba(255, 255, 255, 0.4); margin-bottom: 4px;">Distance</div>
-                        <div style="color: white; font-weight: 500;"><span id="new-ui-distance">0.0</span> mi</div>
-                    </div>
-                    <div>
-                        <div style="color: rgba(255, 255, 255, 0.4); margin-bottom: 4px;">Avg Speed</div>
-                        <div style="color: white; font-weight: 500;"><span id="new-ui-avg-speed">0</span> mph</div>
-                    </div>
-                    <div>
-                        <div style="color: rgba(255, 255, 255, 0.4); margin-bottom: 4px;">Plan Time</div>
-                        <div style="color: white; font-weight: 500;"><span id="new-ui-plan-time">0</span> ms</div>
-                    </div>
-                </div>
-
-                <!-- Right: Gear -->
-                <div id="new-ui-gear" style="
-                    font-size: 32px;
-                    font-weight: 700;
-                    color: white;
-                    letter-spacing: 2px;
+                    font-size: 24px; 
+                    font-weight: 700; 
+                    color: white; 
+                    background: rgba(255,255,255,0.15); 
+                    padding: 2px 12px; 
+                    border-radius: 6px;
                 ">
                     <span id="new-ui-gear-value">P</span>
                 </div>
@@ -328,13 +272,23 @@ export default class NewUIMode {
             });
         }
 
+        // Settings button
+        const settingsBtn = document.getElementById('new-ui-settings-btn');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                if (window.SettingsPanel) {
+                    window.SettingsPanel.open();
+                }
+            });
+        }
+
         // Play button
         const playBtn = document.getElementById('new-ui-play-btn');
         if (playBtn) {
             playBtn.addEventListener('click', () => {
                 this.simulator.playScenario();
                 playBtn.style.display = 'none';
-                document.getElementById('new-ui-pause-btn').style.display = 'block';
+                document.getElementById('new-ui-pause-btn').style.display = 'flex'; // Changed to flex to keep centering
             });
         }
 
@@ -344,7 +298,7 @@ export default class NewUIMode {
             pauseBtn.addEventListener('click', () => {
                 this.simulator.pauseScenario();
                 pauseBtn.style.display = 'none';
-                document.getElementById('new-ui-play-btn').style.display = 'block';
+                document.getElementById('new-ui-play-btn').style.display = 'flex'; // Changed to flex to keep centering
             });
         }
 
@@ -358,71 +312,54 @@ export default class NewUIMode {
     }
 
     setupHoverEffects() {
-        // Autopilot button hover
-        const autopilotBtn = document.getElementById('new-ui-autopilot-btn');
-        if (autopilotBtn) {
-            autopilotBtn.addEventListener('mouseenter', () => {
-                autopilotBtn.style.background = 'rgba(59, 130, 246, 0.3)';
-                autopilotBtn.style.transform = 'scale(1.02)';
+        const buttons = document.querySelectorAll('#new-ui-mode .ui-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                if (!btn.classList.contains('active')) {
+                    btn.style.background = 'rgba(255, 255, 255, 0.2)';
+                    btn.style.transform = 'scale(1.1)';
+                }
             });
-            autopilotBtn.addEventListener('mouseleave', () => {
-                autopilotBtn.style.background = 'rgba(59, 130, 246, 0.2)';
-                autopilotBtn.style.transform = 'scale(1)';
-            });
-        }
 
-        // Generic hover for other buttons
-        const buttons = ['scenario-btn', 'edit-btn', 'play-btn', 'pause-btn', 'restart-btn'];
-        buttons.forEach(btnId => {
-            const btn = document.getElementById(`new-ui-${btnId}`);
-            if (btn) {
-                btn.addEventListener('mouseenter', () => {
-                    btn.style.background = 'rgba(255, 255, 255, 0.15)';
-                    btn.style.transform = 'translateY(-2px)';
-                });
-                btn.addEventListener('mouseleave', () => {
-                    const isPlayback = btnId.includes('play') || btnId.includes('pause') || btnId.includes('restart');
-                    if (isPlayback) {
-                        btn.style.background = btn.style.background; // Keep original
-                    } else {
-                        btn.style.background = 'rgba(255, 255, 255, 0.05)';
-                    }
-                    btn.style.transform = 'translateY(0)';
-                });
-            }
+            btn.addEventListener('mouseleave', () => {
+                if (!btn.classList.contains('active')) {
+                    btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                    btn.style.transform = 'scale(1)';
+                }
+            });
+
+            btn.addEventListener('mousedown', () => {
+                btn.style.transform = 'scale(0.95)';
+            });
+
+            btn.addEventListener('mouseup', () => {
+                btn.style.transform = 'scale(1.1)';
+            });
         });
     }
 
     updateAutopilotState() {
-        const indicator = document.getElementById('new-ui-autopilot-indicator');
         const autopilotBtn = document.getElementById('new-ui-autopilot-btn');
 
         if (this.simulator.carControllerMode === 'autonomous' || this.simulator.carControllerMode === 'autopark') {
-            if (indicator) {
-                indicator.style.background = '#10b981';
-                indicator.style.boxShadow = '0 0 8px #10b981';
-            }
             if (autopilotBtn) {
-                autopilotBtn.style.background = 'rgba(16, 185, 129, 0.25)';
-                autopilotBtn.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+                autopilotBtn.style.background = '#3b82f6';
+                autopilotBtn.style.color = 'white';
+                autopilotBtn.style.boxShadow = '0 0 15px rgba(59, 130, 246, 0.6)';
+                autopilotBtn.classList.add('active');
             }
         } else {
-            if (indicator) {
-                indicator.style.background = 'rgba(255, 255, 255, 0.3)';
-                indicator.style.boxShadow = 'none';
-            }
             if (autopilotBtn) {
-                autopilotBtn.style.background = 'rgba(59, 130, 246, 0.2)';
-                autopilotBtn.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                autopilotBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+                autopilotBtn.style.color = 'white';
+                autopilotBtn.style.boxShadow = 'none';
+                autopilotBtn.classList.remove('active');
             }
         }
     }
 
     startClock() {
-        setInterval(() => {
-            this.currentTime = new Date();
-            this.updateTime();
-        }, 1000);
+        // Clock removed from UI but keeping method to avoid errors
     }
 
     enable() {
@@ -435,7 +372,8 @@ export default class NewUIMode {
             '#controls',
             '#config-box',
             '#editor-enabler',
-            '#camera-controls'
+            '#camera-controls',
+            '#new-controls-box' // Added new controls box to be hidden in new UI mode
         ];
 
         oldElements.forEach(selector => {
@@ -454,7 +392,8 @@ export default class NewUIMode {
             '#controls',
             '#config-box',
             '#editor-enabler',
-            '#camera-controls'
+            '#camera-controls',
+            '#new-controls-box'
         ];
 
         oldElements.forEach(selector => {
@@ -487,12 +426,6 @@ export default class NewUIMode {
 
         // Update FSD status
         this.fsdActive = data.fsdActive || false;
-        const fsdStatus = document.getElementById('new-ui-fsd-status');
-        if (this.fsdActive) {
-            fsdStatus.style.display = 'block';
-        } else {
-            fsdStatus.style.display = 'none';
-        }
 
         // Update center message
         const centerMessage = document.getElementById('new-ui-center-message');
@@ -504,8 +437,6 @@ export default class NewUIMode {
 
         // Update stats
         document.getElementById('new-ui-distance').textContent = (data.distance || 0).toFixed(1);
-        document.getElementById('new-ui-avg-speed').textContent = Math.round(data.avgSpeed || 0);
-        document.getElementById('new-ui-plan-time').textContent = Math.round(data.planTime || 0);
 
         // Update gear
         const gear = data.gear || 'P';
@@ -513,17 +444,6 @@ export default class NewUIMode {
 
         // Update autopilot indicator
         this.updateAutopilotState();
-    }
-
-    updateTime() {
-        const hours = this.currentTime.getHours();
-        const minutes = this.currentTime.getMinutes();
-        const timeString = `${hours}:${minutes.toString().padStart(2, '0')}`;
-
-        const timeEl = document.getElementById('new-ui-time');
-        if (timeEl) {
-            timeEl.textContent = timeString;
-        }
     }
 
     setSpeedUnit(unit) {
